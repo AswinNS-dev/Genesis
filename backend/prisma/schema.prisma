@@ -1,0 +1,292 @@
+// CrimeIntel — Prisma schema
+// All data is entirely fictional / demo.
+// SQLite connector: no native enums — role/status/type/severity stored as String.
+//
+// Auth/RBAC models (Phase 2) + domain models for Phases 3–10.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Auth & Security
+// ============================================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("VIEWER") // ADMIN | INVESTIGATOR | ANALYST | VIEWER
+  status       String   @default("ACTIVE") // ACTIVE | DISABLED | LOCKED
+  failedLogins Int      @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attempts   LoginAttempt[]
+  alerts     SecurityAlert[]
+  auditLogs  AuditLog[]
+  cases      InvestigationCase[] // assigned
+  documents  EvidenceDocument[]
+  notes      CaseNote[]
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  success   Boolean  @default(false)
+  ip        String?
+  userAgent String?
+  reason    String?
+  attemptAt DateTime @default(now())
+
+  userId String?
+  user   User?    @relation(fields: [userId], references: [id])
+}
+
+model SecurityAlert {
+  id         String   @id @default(cuid())
+  severity   String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  type       String // FAILED_LOGIN | LOCKED_ACCOUNT | UNUSUAL_ACCESS | BRUTE_FORCE | TAMPER | RULE
+  message    String
+  detail     String?
+  createdAt  DateTime @default(now())
+  resolved   Boolean  @default(false)
+  resolvedAt DateTime?
+
+  userId String?
+  user   User?     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  detail    String?
+  caseId    String?
+  ip        String?
+  userAgent String?
+  status    String   @default("SUCCESS")
+  createdAt DateTime @default(now())
+
+  userId String?
+  user   User?    @relation(fields: [userId], references: [id])
+  case   InvestigationCase? @relation(fields: [caseId], references: [id])
+}
+
+// ============================================================
+// Case Management
+// ============================================================
+
+model InvestigationCase {
+  id            String   @id @default(cuid())
+  caseId        String   @unique // e.g. CR-2026-1042
+  title         String
+  description   String?
+  status        String   @default("OPEN") // OPEN | CLOSED | ARCHIVED
+  classification String  @default("RESTRICTED") // OPEN | RESTRICTED | SECRET
+  assignedInvestigator String?
+  createdById   String?
+  createdBy     User?    @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  notes     CaseNote[]
+  activities CaseActivity[]
+  documents EvidenceDocument[]
+  entities  Entity[]
+  events    TimelineEvent[]
+  relationships Relationship[]
+  auditLogs AuditLog[]
+}
+
+model CaseNote {
+  id        String   @id @default(cuid())
+  body      String
+  author    String?
+  createdAt DateTime @default(now())
+  caseId    String
+  case      InvestigationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  authorId  String?
+  authorUser User?  @relation(fields: [authorId], references: [id])
+}
+
+model CaseActivity {
+  id        String   @id @default(cuid())
+  action    String
+  detail    String?
+  actor     String?
+  createdAt DateTime @default(now())
+  caseId    String
+  case      InvestigationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// Evidence & Blockchain Integrity
+// ============================================================
+
+model EvidenceDocument {
+  id           String   @id @default(cuid())
+  name         String   // original filename
+  description  String?
+  filePath     String?
+  contentType  String   @default("application/pdf")
+  sizeBytes    Int      @default(0)
+  sha256       String? // stored SHA-256 hash
+  verified     Boolean  @default(false)
+  verifiedAt   DateTime?
+  status       String   @default("ACTIVE") // ACTIVE | COMPROMISED | VERIFIED
+  createdAt    DateTime @default(now())
+  caseId       String
+  case         InvestigationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+
+  blockchainRecords BlockchainRecord[]
+  verifications    EvidenceVerification[]
+  extraction       ExtractionCandidate[]
+}
+
+model BlockchainRecord {
+  id           String   @id @default(cuid())
+  index        Int      @unique
+  timestamp    DateTime @default(now())
+  dataHash     String // SHA-256 of the evidence/data
+  previousHash String
+  hash         String // own block hash
+  action       String   @default("EVIDENCE_HASH") // EVIDENCE_HASH | INTEGRITY_VERIFY | EVIDENCE_MODIFIED
+  note         String?
+  createdAt    DateTime @default(now())
+  evidenceId   String?
+  evidence     EvidenceDocument? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+}
+
+model EvidenceVerification {
+  id           String   @id @default(cuid())
+  evidenceId   String
+  evidence     EvidenceDocument @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  verifiedBy   String?
+  action       String   @default("VERIFY")
+  result       String // MATCH | MISMATCH
+  detail       String?
+  createdAt    DateTime @default(now())
+}
+
+// ============================================================
+// Entity Registry
+// ============================================================
+
+model Entity {
+  id        String   @id @default(cuid())
+  type      String // PERSON | PHONE | VEHICLE | LOCATION | ORGANIZATION | BANK_ACCOUNT | TRANSACTION
+  name      String
+  aliases   String? // JSON array of aliases / normalized forms
+  value     String?
+  metadata  String? // JSON blob — address, notes, etc.
+  riskScore Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  caseId    String?
+  case      InvestigationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  sourceRelationships  Relationship[] @relation("source")
+  targetRelationships  Relationship[] @relation("target")
+  matchesTargetA       EntityMatch[]  @relation("matchA")
+  matchesTargetB       EntityMatch[]  @relation("matchB")
+  timelineEvents       TimelineEvent[]
+}
+
+model EntityMatch {
+  id         String   @id @default(cuid())
+  entityAId  String
+  entityBId  String
+  entityA    Entity   @relation("matchA", fields: [entityAId], references: [id], onDelete: Cascade)
+  entityB    Entity   @relation("matchB", fields: [entityBId], references: [id], onDelete: Cascade)
+  confidence Int
+  reasons    String   // JSON array of matching reasons
+  status     String   @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  createdAt  DateTime @default(now())
+}
+
+// ============================================================
+// Relationships / Graph Edges
+// ============================================================
+
+model Relationship {
+  id         String   @id @default(cuid())
+  type       String // COMMUNICATION | TRANSACTION | LOCATION | CASE | TRANSPORT | FINANCIAL
+  label      String?
+  sourceId   String
+  targetId   String
+  source     Entity @relation("source", fields: [sourceId], references: [id], onDelete: Cascade)
+  target     Entity @relation("target", fields: [targetId], references: [id], onDelete: Cascade)
+  strength   Int      @default(0)
+  count      Int      @default(0)
+  records    String? // JSON array — supporting record references
+  createdAt  DateTime @default(now())
+  caseId     String?
+  case       InvestigationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// Timeline
+// ============================================================
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  type        String // COMMUNICATION | VISIT | LOCATION | FINANCIAL | VEHICLE | GENERAL
+  summary     String
+  detail      String?
+  eventAt     DateTime
+  entityId    String?
+  entity      Entity?  @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  caseId      String?
+  case        InvestigationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// AI — Extraction candidates, patterns, alerts, summaries
+// ============================================================
+
+model ExtractionCandidate {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    EvidenceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  type        String   // PERSON | PHONE | VEHICLE | LOCATION | ORGANIZATION | FINANCIAL | DATE | EVENT
+  value       String
+  context     String?
+  status      String   @default("PENDING") // PENDING | CONFIRMED | EDITED | REJECTED
+  editedValue String?
+  createdAt   DateTime @default(now())
+}
+
+model Pattern {
+  id        String   @id @default(cuid())
+  type      String // REPEATED_LOCATION | REPEATED_COMMUNICATION | SHARED_VEHICLE | CROSS_CASE | TRANSACTION_CHAIN | UNUSUAL_ACTIVITY
+  title     String
+  summary   String
+  severity  String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  entities  String? // JSON — involved entity names
+  reasons   String? // JSON — explainable reasons
+  evidence  String? // JSON — supporting records
+  relevance Int      @default(0)
+  createdAt DateTime @default(now())
+  resolved  Boolean  @default(false)
+}
+
+model AIAlert {
+  id        String   @id @default(cuid())
+  type      String // NEW_RELATIONSHIP | CROSS_CASE_MATCH | REPEATED_LOCATION | PATTERN | TAMPER
+  severity  String   @default("MEDIUM")
+  message   String
+  detail    String?
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+}

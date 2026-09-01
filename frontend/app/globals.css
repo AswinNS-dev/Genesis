@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #060a13;
+  --surface: #0b1220;
+  --surface-raised: #101a2e;
+  --border: #1c2a44;
+  --foreground: #e2e8f0;
+  --muted: #8b9bb4;
+
+  /* Saffron-inspired accent (Indian flag saffron) */
+  --accent: #f59e0b;
+  --accent-strong: #fbbf24;
+
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --success: #22c55e;
+
+  --sidebar-width: 15.5rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2f4e;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2b3f66;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}

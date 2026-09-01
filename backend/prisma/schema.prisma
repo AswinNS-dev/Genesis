@@ -36,6 +36,8 @@ model User {
   cases      InvestigationCase[] // assigned
   documents  EvidenceDocument[]
   notes      CaseNote[]
+  datasets        Dataset[]          // uploaded datasets
+  datasetReviews  DatasetRecord[]    // review/merge actions
 }
 
 model LoginAttempt {
@@ -103,6 +105,7 @@ model InvestigationCase {
   entities  Entity[]
   events    TimelineEvent[]
   relationships Relationship[]
+  datasets  Dataset[]
   auditLogs AuditLog[]
 }
 
@@ -200,6 +203,9 @@ model Entity {
   matchesTargetA       EntityMatch[]  @relation("matchA")
   matchesTargetB       EntityMatch[]  @relation("matchB")
   timelineEvents       TimelineEvent[]
+  datasetMatches       DatasetRecord[]  @relation("datasetRecordMatches")
+  datasetMerges        DatasetRecord[]  @relation("datasetRecordMerged")
+  fromDatasets         DatasetEntity[]
 }
 
 model EntityMatch {
@@ -289,4 +295,74 @@ model AIAlert {
   detail    String?
   createdAt DateTime @default(now())
   read      Boolean  @default(false)
+}
+
+// ============================================================
+// Dataset Ingestion (Data Workspace)
+//
+// Datasets are batches of source records ingested from uploads.
+// Each record keeps its raw + normalized form and surfaces entity
+// matching as "potential matches" for investigator review. Every
+// merge decision is audited via reviewedBy/reviewedAt + DatasetEntity.
+// ============================================================
+
+model Dataset {
+  id                 String   @id @default(cuid())
+  name               String
+  sourceType         String   @default("CSV") // CSV | XLSX | JSON | PDF | DOCX | TXT
+  fileName           String?
+  storageLocation    String?  // local "uploads/..." or "supabase://<bucket>/..."
+  status             String   @default("UPLOADED") // UPLOADED | MAPPED | NORMALIZED | MATCHING | READY | ERROR
+  recordCount        Int      @default(0)
+  mapping            String?  // JSON: source column -> canonical field mapping
+  normalizationRules String?  // JSON: normalization rules applied
+  error              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdById        String?
+  createdBy          User?    @relation(fields: [createdById], references: [id])
+  caseId             String?
+  case               InvestigationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  records      DatasetRecord[]
+  datasetEntities DatasetEntity[]
+}
+
+model DatasetRecord {
+  id               String   @id @default(cuid())
+  datasetId        String
+  dataset          Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  rowIndex         Int
+  raw              String?  // JSON: raw source row
+  normalized       String?  // JSON: normalized fields
+  matchStatus      String   @default("UNMATCHED") // UNMATCHED | CANDIDATE | MERGED | SKIPPED
+  matchConfidence  Int      @default(0)
+  matchReasons     String?  // JSON: explainable reasons for the potential match
+  reviewedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  matchCandidateId String?
+  matchCandidate   Entity?  @relation("datasetRecordMatches", fields: [matchCandidateId], references: [id], onDelete: SetNull)
+  mergedEntityId   String?
+  mergedEntity     Entity?  @relation("datasetRecordMerged", fields: [mergedEntityId], references: [id], onDelete: SetNull)
+  reviewedById     String?
+  reviewedBy       User?    @relation(fields: [reviewedById], references: [id])
+
+  datasetEntities DatasetEntity[]
+}
+
+model DatasetEntity {
+  id        String   @id @default(cuid())
+  role      String   @default("SOURCE") // SOURCE | CREATED | MERGED
+  createdAt DateTime @default(now())
+
+  datasetId String
+  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  recordId  String
+  record    DatasetRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  entityId  String
+  entity    Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([datasetId, recordId, entityId])
 }

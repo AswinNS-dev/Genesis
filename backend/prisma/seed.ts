@@ -123,6 +123,9 @@ async function main() {
   console.log("  ✓ users");
 
   // --- Clean existing domain data (idempotent re-seed) ---
+  await prisma.datasetEntity.deleteMany();
+  await prisma.datasetRecord.deleteMany();
+  await prisma.dataset.deleteMany();
   await prisma.pattern.deleteMany();
   await prisma.aIAlert.deleteMany();
   await prisma.extractionCandidate.deleteMany();
@@ -325,6 +328,7 @@ async function main() {
   ];
 
   let blockIndex = 1;
+  const docIdByName: Record<string, string> = {};
   for (const d of evdDefs) {
     const content = evidenceContent(d.name, d.caseKey);
     const dataHash = sha256(content);
@@ -339,6 +343,7 @@ async function main() {
         uploadedById: investigator.id,
       },
     });
+    docIdByName[d.name] = doc.id;
     // Create a chained block.
     const prev = await prisma.blockchainRecord.findFirst({ orderBy: { index: "desc" } });
     const prevHash = prev ? prev.hash : genesisBlock.hash;
@@ -357,6 +362,30 @@ async function main() {
     blockIndex++;
   }
   console.log("  ✓ evidence + blockchain");
+
+  // --- Extraction candidates (evidence text → entity links) ---
+  const extractionDefs = [
+    { doc: "Communication_Record.csv", type: "PERSON", value: "Rahul Kumar", context: "caller — 9876512345", status: "CONFIRMED" },
+    { doc: "Communication_Record.csv", type: "PERSON", value: "Amit Sharma", context: "recipient — 9822013345", status: "CONFIRMED" },
+    { doc: "Communication_Record.csv", type: "PHONE", value: "9876512345", context: "caller ID", status: "CONFIRMED" },
+    { doc: "Transaction_Record.csv", type: "PERSON", value: "Amit Sharma", context: "sender — ₹ 80,000", status: "CONFIRMED" },
+    { doc: "Transaction_Record.csv", type: "PERSON", value: "Rahul Kumar", context: "recipient — ₹ 45,000", status: "PENDING" },
+    { doc: "Vehicle_Movement_Log.xlsx", type: "VEHICLE", value: "DL01AB1234", context: "ANPR capture at Sector 18", status: "CONFIRMED" },
+    { doc: "Location_Record.csv", type: "LOCATION", value: "Sector 18", context: "co-location observation", status: "CONFIRMED" },
+    { doc: "Assessment_Report.pdf", type: "PERSON", value: "Vikram Rao", context: "page 2 mention", status: "PENDING" },
+  ];
+  for (const x of extractionDefs) {
+    await prisma.extractionCandidate.create({
+      data: {
+        documentId: docIdByName[x.doc],
+        type: x.type,
+        value: x.value,
+        context: x.context,
+        status: x.status,
+      },
+    });
+  }
+  console.log("  ✓ extraction candidates");
 
   // --- AI patterns ---
   const patternDefs = [
@@ -442,6 +471,96 @@ async function main() {
     });
   }
   console.log("  ✓ ai alerts");
+
+  // --- Datasets (Data Workspace demo) ---
+  const dataset = await prisma.dataset.create({
+    data: {
+      name: "Subscriber_Registry_extract.csv",
+      sourceType: "CSV",
+      fileName: "Subscriber_Registry_extract.csv",
+      storageLocation: "uploads/CR-2026-1042/Subscriber_Registry_extract.csv",
+      status: "READY",
+      recordCount: 4,
+      mapping: JSON.stringify({ name: "name", phone: "phone", address: "address" }),
+      normalizationRules: JSON.stringify(["trim", "phone-unify"]),
+      createdById: investigator.id,
+      caseId: caseById["CR-2026-1042"],
+    },
+  });
+
+  const datasetRows: {
+    rowIndex: number;
+    raw: { name: string; phone: string; address: string };
+    candidate?: string;
+    confidence: number;
+    match: string;
+    reasons: string[];
+  }[] = [
+    {
+      rowIndex: 0,
+      raw: { name: "Rahul Kumar", phone: "+91 98765 12345", address: "Sector 18, Delhi" },
+      candidate: "Rahul Kumar",
+      confidence: 96,
+      match: "MERGED",
+      reasons: ["Name match", "Same phone number"],
+    },
+    {
+      rowIndex: 1,
+      raw: { name: "Amit Sharma", phone: "+91 98220 13345", address: "Central Market, Delhi" },
+      candidate: "Amit Sharma",
+      confidence: 97,
+      match: "MERGED",
+      reasons: ["Name match", "Same phone number"],
+    },
+    {
+      rowIndex: 2,
+      raw: { name: "Vikram Rao", phone: "+91 99887 76655", address: "Industrial Area, Faridabad" },
+      candidate: "Vikram Rao",
+      confidence: 90,
+      match: "CANDIDATE",
+      reasons: ["Name match"],
+    },
+    {
+      rowIndex: 3,
+      raw: { name: "Sandeep Bhardwaj", phone: "+91 90000 11111", address: "Vasant Vihar, Delhi" },
+      confidence: 0,
+      match: "UNMATCHED",
+      reasons: [],
+    },
+  ];
+
+  for (const row of datasetRows) {
+    const record = await prisma.datasetRecord.create({
+      data: {
+        datasetId: dataset.id,
+        rowIndex: row.rowIndex,
+        raw: JSON.stringify(row.raw),
+        normalized: JSON.stringify({
+          name: row.raw.name.trim(),
+          phone: row.raw.phone.replace(/\s+/g, ""),
+          address: row.raw.address.trim(),
+        }),
+        matchStatus: row.match,
+        matchConfidence: row.confidence,
+        matchReasons: JSON.stringify(row.reasons),
+        matchCandidateId: row.candidate ? entityId[row.candidate] : undefined,
+        mergedEntityId: row.match === "MERGED" && row.candidate ? entityId[row.candidate] : undefined,
+        reviewedById: row.match === "MERGED" ? investigator.id : undefined,
+        reviewedAt: row.match === "MERGED" ? new Date(today.getTime() - 2 * 24 * 3600 * 1000) : undefined,
+      },
+    });
+    if (row.candidate && entityId[row.candidate]) {
+      await prisma.datasetEntity.create({
+        data: {
+          datasetId: dataset.id,
+          recordId: record.id,
+          entityId: entityId[row.candidate],
+          role: row.match === "MERGED" ? "MERGED" : "SOURCE",
+        },
+      });
+    }
+  }
+  console.log("  ✓ datasets");
 
   // --- Security seed ---
   const existingAttempt = await prisma.loginAttempt.findFirst({ where: { userId: admin.id } });

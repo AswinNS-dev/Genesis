@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Settings, Users, Cpu, ShieldCheck } from "lucide-react";
 import { prisma } from "@backend/lib/prisma";
+import { registerProviders } from "@backend/ai/providers/register";
+import { listProviders } from "@backend/ai/providers";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +11,20 @@ import { StatCard } from "@/components/ui/stat-card";
 export const metadata: Metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
 
+const CAPABILITY_LABELS: Record<string, string> = {
+  extraction: "Text extraction",
+  summarizer: "Investigation summary",
+  leadGenerator: "Lead generation",
+  patternDetector: "Pattern detection",
+  entityMatcher: "Entity matching",
+  relationshipDetector: "Relationship inference",
+  anomalyDetector: "Anomaly detection",
+};
+
 export default async function SettingsPage() {
+  registerProviders();
+  const providerStack = listProviders();
+  const activeProvider = process.env.AI_PROVIDER ?? "mock";
   const [users, alerts] = await Promise.all([
     prisma.user.findMany({ orderBy: { role: "asc" } }),
     prisma.securityAlert.count({ where: { resolved: false } }),
@@ -78,6 +93,32 @@ export default async function SettingsPage() {
                 AI operations use a replaceable abstraction layer (lib/ai). In mock mode, extraction,
                 summarization and pattern detection run deterministically on fictional demo data —
                 no external API required. Swap AI_MODE=llm and implement the provider to integrate a real model.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader title="AI provider stack" description="Registered pluggable algorithms per capability" />
+            <CardContent className="space-y-2 text-sm">
+              {Object.entries(providerStack).map(([capability, providers]) => {
+                const active = providers.includes(activeProvider) ? activeProvider : providers[0];
+                return (
+                  <div key={capability} className="flex items-center justify-between gap-3">
+                    <span className="shrink-0 text-muted">{CAPABILITY_LABELS[capability] ?? capability}</span>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {providers.map((name) => (
+                        <Badge key={name} variant={name === active ? "success" : "outline"}>
+                          {name}
+                          {name === active ? " · active" : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="pt-2 text-xs text-muted">
+                Algorithms are swappable behind the provider registry. Set the <code className="rounded bg-surface-raised px-1 py-0.5">AI_PROVIDER</code> env
+                variable (default <code className="rounded bg-surface-raised px-1 py-0.5">mock</code>) and restart to switch the active provider for every capability.
               </p>
             </CardContent>
           </Card>

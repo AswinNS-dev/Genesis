@@ -15,12 +15,14 @@ const ROLE_LEVEL: Record<Role, number> = {
 // Admin-only areas (system config, audit, security management).
 const ADMIN_ONLY = new Set(["/settings", "/audit-logs", "/security"]);
 
-// Investigate/write capabilities (create/edit cases, uploads) require at least INVESTIGATOR.
+// Investigate/write capabilities (create/edit cases, uploads, data ingestion)
+// require at least INVESTIGATOR.
 const WRITE_AREAS = new Set([
   "/documents",
   "/cases",
   "/evidence",
   "/blockchain",
+  "/data-workspace",
 ]);
 
 export function isRole(role: string | undefined, min: Role): boolean {

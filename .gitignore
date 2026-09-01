@@ -12,6 +12,7 @@
 # next.js
 /.next/
 /out/
+frontend/.next/
 
 # production
 /build
@@ -25,11 +26,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files (may contain the Supabase service role key)
+.env
 .env*.local
+frontend/.env
+backend/.env
 
 # vercel
 .vercel
+
+# sqlite demo database
+backend/prisma/*.db
+backend/prisma/*.db-journal
 
 # typescript
 *.tsbuildinfo

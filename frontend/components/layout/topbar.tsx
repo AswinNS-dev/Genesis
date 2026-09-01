@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { useSidebarStore } from "@/lib/store/sidebar";
 import { allNavItems } from "@/config/navigation";
 import { UserMenu, type SessionUser } from "@/components/layout/user-menu";
+import { GlobalSearch } from "@/components/search/global-search";
 
 function getBreadcrumb(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
@@ -37,13 +38,7 @@ export function Topbar({ user }: { user: SessionUser }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="relative hidden md:block">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            placeholder="Search cases, entities…"
-            className="h-9 w-64 rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
-          />
-        </div>
+        <GlobalSearch />
 
         <button className="relative rounded-lg p-2 text-muted hover:bg-surface-raised hover:text-foreground">
           <Bell className="h-5 w-5" />

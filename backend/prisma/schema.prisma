@@ -1,6 +1,11 @@
 // CrimeIntel — Prisma schema
 // All data is entirely fictional / demo.
-// SQLite connector: no native enums — role/status/type/severity stored as String.
+//
+// Database connector: PostgreSQL by default (runtime-switchable to SQLite for
+// local dev by changing `provider` below to "sqlite" and pointing DATABASE_URL
+// at a file). When DATABASE_URL is a Postgres connection string (e.g. from
+// Supabase), the app runs entirely on Supabase. Enum-like fields are stored as
+// String for portability across both connectors.
 //
 // Auth/RBAC models (Phase 2) + domain models for Phases 3–10.
 
@@ -9,7 +14,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -93,6 +98,10 @@ model InvestigationCase {
   description   String?
   status        String   @default("OPEN") // OPEN | CLOSED | ARCHIVED
   classification String  @default("RESTRICTED") // OPEN | RESTRICTED | SECRET
+  category      String?  // e.g. Financial Fraud | Narcotics | Human Trafficking | Cyber
+  caseSource    String?  // how the case was initiated: Citizen Tip | Surveillance | Referral | Anonymous
+  incidentDate  DateTime? // when the incident/crime occurred
+  jurisdiction  String?  // district / geographic area / jurisdiction code
   assignedInvestigator String?
   createdById   String?
   createdBy     User?    @relation(fields: [createdById], references: [id])
@@ -314,6 +323,7 @@ model Dataset {
   storageLocation    String?  // local "uploads/..." or "supabase://<bucket>/..."
   status             String   @default("UPLOADED") // UPLOADED | MAPPED | NORMALIZED | MATCHING | READY | ERROR
   recordCount        Int      @default(0)
+  analysisScope      String   @default("COMBINED") // COMBINED | DATASET_ONLY
   mapping            String?  // JSON: source column -> canonical field mapping
   normalizationRules String?  // JSON: normalization rules applied
   error              String?

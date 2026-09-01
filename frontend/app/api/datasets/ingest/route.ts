@@ -19,11 +19,20 @@ export async function POST(req: Request) {
     sourceType?: string;
     fileName?: string;
     caseId?: string;
+    analysisScope?: "COMBINED" | "DATASET_ONLY";
   } | null;
 
   if (!body?.content || !body?.sourceType || !SUPPORTED.has(body.sourceType)) {
     return NextResponse.json(
       { error: "content and a supported sourceType (CSV | JSON | TXT) are required" },
+      { status: 400 }
+    );
+  }
+
+  const scope = body.analysisScope === "DATASET_ONLY" ? "DATASET_ONLY" : "COMBINED";
+  if (scope === "DATASET_ONLY" && !body.caseId) {
+    return NextResponse.json(
+      { error: "A dataset-only analysis requires linking the dataset to a case (caseId is required)" },
       { status: 400 }
     );
   }
@@ -34,6 +43,7 @@ export async function POST(req: Request) {
       sourceType: body.sourceType as "CSV" | "JSON" | "TXT",
       fileName: body.fileName,
       caseId: body.caseId,
+      analysisScope: scope,
       createdById: (session.user as { id?: string }).id,
       userName: session.user.name ?? undefined,
     });
@@ -41,7 +51,7 @@ export async function POST(req: Request) {
       data: {
         userId: (session.user as { id?: string }).id,
         action: "DATASET_INGESTED",
-        detail: `${result.dataset.name} — ${result.summary?.total ?? 0} records`,
+        detail: `${result.dataset.name} — ${result.summary?.total ?? 0} records (analysis scope: ${scope})`,
         status: result.summary ? "SUCCESS" : "ERROR",
       },
     });

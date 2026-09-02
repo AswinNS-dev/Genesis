@@ -25,10 +25,12 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 def list_cases_endpoint(
     status: Optional[str] = None,
     search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
     db: Session = Depends(get_db)
 ):
     repo = CaseRepository(db)
-    cases = repo.list(status=status, search=search)
+    cases = repo.list(status=status, search=search, limit=limit, offset=offset)
     return cases
 
 @router.post("", response_model=CaseResponseSchema)

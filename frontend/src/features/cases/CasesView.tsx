@@ -48,10 +48,13 @@ export const CasesView: React.FC = () => {
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const fetchCases = async () => {
+  const [page, setPage] = useState(0);
+  const pageSize = 60;
+
+  const fetchCases = async (currentPage = page) => {
     try {
       setLoading(true);
-      const data = await caseService.getCases(statusFilter, searchTerm);
+      const data = await caseService.getCases(statusFilter, searchTerm, pageSize, currentPage * pageSize);
       setCases(data);
       setError(null);
     } catch (err: any) {
@@ -61,13 +64,35 @@ export const CasesView: React.FC = () => {
     }
   };
 
+  // Live debounced search across all 941 Supabase cases
   useEffect(() => {
-    fetchCases();
-  }, [statusFilter]);
+    const timer = setTimeout(() => {
+      setPage(0);
+      fetchCases(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [statusFilter, searchTerm]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchCases();
+    setPage(0);
+    fetchCases(0);
+  };
+
+  const handleNextPage = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchCases(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePrevPage = () => {
+    if (page > 0) {
+      const prevPage = page - 1;
+      setPage(prevPage);
+      fetchCases(prevPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleCreateCase = async (e: React.FormEvent) => {

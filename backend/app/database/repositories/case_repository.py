@@ -12,9 +12,9 @@ class CaseRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def list(self, status: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list(self, status: Optional[str] = None, search: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         # Fetch from real Supabase fir_cases
-        supa_cases = supabase_db.list_cases(limit=100, status=status, search=search)
+        supa_cases = supabase_db.list_cases(limit=limit, offset=offset, status=status, search=search)
         if supa_cases:
             return supa_cases
 

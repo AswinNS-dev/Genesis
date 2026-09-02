@@ -42,3 +42,10 @@ backend/prisma/*.db-journal
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Machine Learning
+ml/models/
+ml/data/*.json
+__pycache__/
+*.pyc
+synthetic_entities_100k.csv

@@ -27,6 +27,9 @@ type Candidate = {
   value: string;
   context?: string | null;
   status: string;
+  confidence?: number | null;
+  resolutionDecision?: string | null;
+  resolutionSignals?: string | null;
 };
 type Evidence = {
   id: string;
@@ -266,6 +269,16 @@ export default function DocumentsPage() {
                         </span>
                         <Badge variant="outline" className="uppercase">{entityLabel(c.type)}</Badge>
                         <span className="text-sm font-medium text-foreground">{c.value}</span>
+                        {c.confidence !== undefined && c.confidence !== null ? (
+                          <Badge variant={c.confidence > 0.8 ? "success" : "warning"} className="ml-2 text-[10px]">
+                            {Math.round(c.confidence * 100)}% conf
+                          </Badge>
+                        ) : null}
+                        {c.resolutionDecision ? (
+                          <Badge variant={c.resolutionDecision === "MATCH" ? "success" : c.resolutionDecision === "REVIEW" ? "warning" : "outline"} className="ml-2 text-[10px]">
+                            ER: {c.resolutionDecision}
+                          </Badge>
+                        ) : null}
                         <div className="ml-auto flex items-center gap-1.5">
                           {c.status === "PENDING" ? (
                             <>
@@ -316,6 +329,16 @@ export default function DocumentsPage() {
                       ) : null}
                       {c.context ? (
                         <p className="mt-1.5 line-clamp-2 text-[11px] text-muted">{c.context}</p>
+                      ) : null}
+                      {c.resolutionSignals ? (
+                        <div className="mt-2 rounded-md bg-surface p-2 text-[10px] text-muted-foreground font-mono">
+                          <p className="font-semibold text-muted mb-1">ER Signals:</p>
+                          <ul className="grid grid-cols-2 gap-1">
+                            {Object.entries(JSON.parse(c.resolutionSignals)).map(([k, v]) => (
+                               <li key={k}>{k}: <span className={Number(v) > 0.5 ? "text-green-400" : ""}>{Number(v).toFixed(2)}</span></li>
+                            ))}
+                          </ul>
+                        </div>
                       ) : null}
                     </div>
                   );

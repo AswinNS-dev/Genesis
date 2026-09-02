@@ -33,7 +33,7 @@ export type { EntityType as AiEntityType };
 // Re-export the shared contexts / result types for consumers.
 export type { AnalysisContext, InvestigationSummary, InvestigationLead, AnomalyResult };
 
-export type AiMode = "mock" | "llm";
+export type AiMode = "mock" | "llm" | "ml";
 
 import { registerProviders } from "../ai/providers/register";
 import {
@@ -55,6 +55,7 @@ if (typeof globalThis !== "undefined") {
 
 export function aiMode(): AiMode {
   const mode = (process.env.AI_MODE as string | undefined) ?? "mock";
+  if (mode === "ml") return "ml";
   return mode === "llm" ? "llm" : "mock";
 }
 
@@ -66,6 +67,29 @@ export async function extractEntities(
   text: string,
   hints?: string[]
 ): Promise<ExtractionResult[]> {
+  const mode = aiMode();
+  if (mode === "ml") {
+    try {
+      const { envConfig } = await import("../infrastructure/config/env");
+      const res = await fetch(`${envConfig.mlServiceUrl}/ner/extract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.entities.map((e: any) => ({
+          type: e.label as EntityType,
+          value: e.text,
+          confidence: e.confidence
+        }));
+      } else {
+        console.warn("ML Service error:", await res.text());
+      }
+    } catch (err) {
+      console.warn("Failed to reach ML Service, falling back to mock:", err);
+    }
+  }
   return getExtractionProvider().extract(text, hints);
 }
 

@@ -12,13 +12,16 @@ class EntityCreateSchema(BaseModel):
     caseId: Optional[str] = None
 
 class EntityResponseSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="allow")
     id: str
     name: str
     type: str
     aliases: Optional[str] = None
     value: Optional[str] = None
-    metadata_json: Optional[str] = None
+    phone: Optional[str] = None
+    vehicle: Optional[str] = None
+    location: Optional[str] = None
     riskScore: int = 0
     caseId: Optional[str] = None
-    createdAt: datetime
+    createdAt: Optional[datetime] = None
+    dossier: Optional[Dict[str, Any]] = None

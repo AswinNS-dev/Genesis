@@ -6,10 +6,13 @@ export interface EntityItem {
   type: string;
   aliases?: string;
   value?: string;
-  metadata_json?: string;
+  phone?: string;
+  vehicle?: string;
+  location?: string;
   riskScore: number;
   caseId?: string;
   createdAt: string;
+  dossier?: any;
 }
 
 export const entityService = {

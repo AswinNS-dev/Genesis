@@ -101,12 +101,12 @@ class IntelligenceController:
         if not registry_candidates and self.entity_repo:
             db_entities = self.entity_repo.list()
             candidates = [{
-                "id": e.id,
-                "name": e.name,
-                "type": e.type,
-                "phone": e.value if e.type == "PHONE" else None,
-                "vehicle": e.value if e.type == "VEHICLE" else None,
-                "location": e.value if e.type == "LOCATION" else None
+                "id": e.get("id") if isinstance(e, dict) else getattr(e, "id", None),
+                "name": e.get("name") if isinstance(e, dict) else getattr(e, "name", None),
+                "type": e.get("type") if isinstance(e, dict) else getattr(e, "type", None),
+                "phone": (e.get("phone") or (e.get("value") if e.get("type") == "PHONE" else None)) if isinstance(e, dict) else (getattr(e, "value") if getattr(e, "type", "") == "PHONE" else None),
+                "vehicle": (e.get("vehicle") or (e.get("value") if e.get("type") == "VEHICLE" else None)) if isinstance(e, dict) else (getattr(e, "value") if getattr(e, "type", "") == "VEHICLE" else None),
+                "location": (e.get("location") or (e.get("value") if e.get("type") == "LOCATION" else None)) if isinstance(e, dict) else (getattr(e, "value") if getattr(e, "type", "") == "LOCATION" else None)
             } for e in db_entities]
         else:
             candidates = registry_candidates or []

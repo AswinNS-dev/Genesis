@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.database.connection import get_db
 from backend.app.database.repositories.case_repository import CaseRepository
+from backend.app.database.models import CaseNote
 from backend.app.api.schemas.case_schema import (
     CaseCreateSchema, CaseResponseSchema, CaseNoteCreateSchema, CaseNoteResponseSchema
 )
@@ -27,24 +28,7 @@ def list_cases_endpoint(
 ):
     repo = CaseRepository(db)
     cases = repo.list(status=status, search=search)
-    results = []
-    for c in cases:
-        resp = CaseResponseSchema.model_validate(c)
-        resp.entityCount = len(c.entities)
-        resp.documentCount = len(c.documents)
-        results.append(resp)
-    return results
-
-@router.get("/{case_id}", response_model=CaseResponseSchema)
-def get_case_endpoint(case_id: str, db: Session = Depends(get_db)):
-    repo = CaseRepository(db)
-    case = repo.get_by_id(case_id)
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-    resp = CaseResponseSchema.model_validate(case)
-    resp.entityCount = len(case.entities)
-    resp.documentCount = len(case.documents)
-    return resp
+    return cases
 
 @router.post("", response_model=CaseResponseSchema)
 def create_case_endpoint(payload: CaseCreateSchema, db: Session = Depends(get_db)):
@@ -63,24 +47,10 @@ def create_case_endpoint(payload: CaseCreateSchema, db: Session = Depends(get_db
         assignedInvestigator=payload.assignedInvestigator,
         status="OPEN"
     )
-    resp = CaseResponseSchema.model_validate(case)
-    resp.entityCount = 0
-    resp.documentCount = 0
-    return resp
+    return case
 
-@router.patch("/{case_id}", response_model=CaseResponseSchema)
-def patch_case_endpoint(case_id: str, payload: CasePatchSchema, db: Session = Depends(get_db)):
-    repo = CaseRepository(db)
-    updated = repo.update(case_id, **payload.model_dump(exclude_unset=True))
-    if not updated:
-        raise HTTPException(status_code=404, detail="Case not found")
-    resp = CaseResponseSchema.model_validate(updated)
-    resp.entityCount = len(updated.entities)
-    resp.documentCount = len(updated.documents)
-    return resp
-
-# Case Sub-resources
-@router.get("/{case_id}/summary")
+# Specific Sub-resources first
+@router.get("/{case_id:path}/summary")
 def get_case_summary_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
     summary = repo.get_summary(case_id)
@@ -88,84 +58,56 @@ def get_case_summary_endpoint(case_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Case not found")
     return summary
 
-@router.get("/{case_id}/network")
+@router.get("/{case_id:path}/network")
 def get_case_network_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
     return repo.get_network(case_id)
 
-@router.get("/{case_id}/timeline")
+@router.get("/{case_id:path}/timeline")
 def get_case_timeline_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
-    events = repo.get_timeline(case_id)
-    return [{
-        "id": e.id,
-        "type": e.type,
-        "summary": e.summary,
-        "detail": e.detail,
-        "eventAt": e.eventAt.isoformat() if e.eventAt else None,
-        "createdAt": e.createdAt.isoformat() if e.createdAt else None,
-    } for e in events]
+    return repo.get_timeline(case_id)
 
-@router.get("/{case_id}/communications")
+@router.get("/{case_id:path}/communications")
 def get_case_communications_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
-    comms = repo.get_communications(case_id)
-    return [{
-        "id": c.id,
-        "caller": c.caller,
-        "receiver": c.receiver,
-        "callerName": c.callerName,
-        "receiverName": c.receiverName,
-        "type": c.type,
-        "durationSec": c.durationSec,
-        "timestamp": c.timestamp.isoformat() if c.timestamp else None,
-        "cellTower": c.cellTower,
-        "isAnomaly": c.isAnomaly,
-        "anomalyReason": c.anomalyReason,
-    } for c in comms]
+    return repo.get_communications(case_id)
 
-@router.get("/{case_id}/transactions")
+@router.get("/{case_id:path}/transactions")
 def get_case_transactions_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
-    txns = repo.get_transactions(case_id)
-    return [{
-        "id": t.id,
-        "sender": t.sender,
-        "receiver": t.receiver,
-        "senderAccount": t.senderAccount,
-        "receiverAccount": t.receiverAccount,
-        "amount": t.amount,
-        "currency": t.currency,
-        "transactionType": t.transactionType,
-        "timestamp": t.timestamp.isoformat() if t.timestamp else None,
-        "isSuspicious": t.isSuspicious,
-        "suspiciousReason": t.suspiciousReason,
-    } for t in txns]
+    return repo.get_transactions(case_id)
 
-@router.get("/{case_id}/locations")
+@router.get("/{case_id:path}/locations")
 def get_case_locations_endpoint(case_id: str, db: Session = Depends(get_db)):
     repo = CaseRepository(db)
-    locs = repo.get_locations(case_id)
-    return [{
-        "id": l.id,
-        "name": l.name,
-        "address": l.address,
-        "latitude": l.latitude,
-        "longitude": l.longitude,
-        "subjectName": l.subjectName,
-        "timestamp": l.timestamp.isoformat() if l.timestamp else None,
-        "sourceType": l.sourceType,
-        "speedKmh": l.speedKmh,
-    } for l in locs]
+    return repo.get_locations(case_id)
 
-@router.post("/{case_id}/notes", response_model=CaseNoteResponseSchema)
+@router.post("/{case_id:path}/notes", response_model=CaseNoteResponseSchema)
 def add_case_note_endpoint(case_id: str, payload: CaseNoteCreateSchema, db: Session = Depends(get_db)):
-    repo = CaseRepository(db)
-    case = repo.get_by_id(case_id)
+    case_repo = CaseRepository(db)
+    case = case_repo.get_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    note = CaseNote(caseId=case.id, body=payload.body, author="Investigator")
+    note = CaseNote(caseId=case["id"], body=payload.body, author="Investigator")
     db.add(note)
     db.commit()
     db.refresh(note)
     return CaseNoteResponseSchema.model_validate(note)
+
+# Generic {case_id:path} GET and PATCH
+@router.get("/{case_id:path}", response_model=CaseResponseSchema)
+def get_case_endpoint(case_id: str, db: Session = Depends(get_db)):
+    repo = CaseRepository(db)
+    case = repo.get_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return case
+
+@router.patch("/{case_id:path}", response_model=CaseResponseSchema)
+def patch_case_endpoint(case_id: str, payload: CasePatchSchema, db: Session = Depends(get_db)):
+    repo = CaseRepository(db)
+    updated = repo.update(case_id, **payload.model_dump(exclude_unset=True))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return updated

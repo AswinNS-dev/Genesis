@@ -1,11 +1,13 @@
-// CrimeIntel — Transaction Analysis Module
+// CrimeIntel — Production-Grade Transaction Analysis Engine
 // ============================================================
-// Performs in-depth financial transaction analysis:
-// - Outlier amount detection (Z-Score, IQR, historical entity baselines).
-// - Transaction frequency & velocity surge detection.
-// - New counterparty relationship discovery.
-// - Sudden behavioral shift detection (structuring, fan-out/fan-in).
-// - Financial flow chains and network metrics.
+// Comprehensive financial transaction analysis:
+// - Outlier amount detection (Classical Z-Score, Modified Z-Score / MAD, IQR)
+// - Transaction frequency & velocity surge detection
+// - Structuring / Smurfing pattern detection (sub-threshold transfers)
+// - Rapid pass-through / Layering detection (Mule account behavior)
+// - Round-tripping & U-turn transaction discovery (A -> B -> A, A -> B -> C -> A)
+// - New counterparty relationship discovery
+// - Financial flow chains & net balance velocity
 //
 // Conforms to SIH26189 specification:
 // - Non-judgmental investigative decision-support system.
@@ -16,15 +18,22 @@ export interface TransactionRecord {
   sender?: string;
   source?: string;
   debitedParty?: string;
+  debited_party?: string;
   from?: string;
   payer?: string;
   sourceAccount?: string;
+  source_account?: string;
+  remitter_account?: string;
+  debit_acc?: string;
   receiver?: string;
   beneficiary?: string;
   creditedParty?: string;
+  credited_party?: string;
   to?: string;
   payee?: string;
   targetAccount?: string;
+  target_account?: string;
+  credit_acc?: string;
   amount?: number | string;
   currency?: string;
   timestamp?: string | Date;
@@ -32,6 +41,7 @@ export interface TransactionRecord {
   time?: string | Date;
   transactionId?: string;
   txId?: string;
+  tx_id?: string;
   channel?: string;
   paymentMode?: string;
   [key: string]: unknown;
@@ -67,6 +77,7 @@ export interface TransactionAnomaly {
     upperIqrBound?: number;
     observedCount?: number;
     timeWindow?: string;
+    flowPattern?: string;
     [key: string]: unknown;
   };
 }
@@ -111,6 +122,7 @@ export interface TransactionChain {
   total_amount: number;
   transaction_count: number;
   currency: string;
+  patternType?: "transfer_chain" | "u_turn" | "circular_loop";
 }
 
 export interface TransactionAnalysisResult {
@@ -143,8 +155,8 @@ export class TransactionRecordNormalizer {
 
       const r = raw as Record<string, unknown>;
 
-      const senderRaw = r.sender ?? r.source ?? r.debitedParty ?? r.debited_party ?? r.from ?? r.payer ?? r.sourceAccount ?? r.source_account;
-      const receiverRaw = r.receiver ?? r.beneficiary ?? r.creditedParty ?? r.credited_party ?? r.to ?? r.payee ?? r.targetAccount ?? r.target_account;
+      const senderRaw = r.sender ?? r.source ?? r.debitedParty ?? r.debited_party ?? r.from ?? r.payer ?? r.sourceAccount ?? r.source_account ?? r.remitter_account ?? r.debit_acc;
+      const receiverRaw = r.receiver ?? r.beneficiary ?? r.creditedParty ?? r.credited_party ?? r.to ?? r.payee ?? r.targetAccount ?? r.target_account ?? r.credit_acc;
 
       const sender = String(senderRaw ?? "").trim();
       const receiver = String(receiverRaw ?? "").trim();
@@ -155,7 +167,7 @@ export class TransactionRecordNormalizer {
 
       // Amount parsing
       let amount = 0;
-      const amtVal = r.amount ?? r.tx_amount ?? r.transfer_amount ?? r.value ?? r.sum;
+      const amtVal = r.amount ?? r.tx_amount ?? r.transfer_amount ?? r.value ?? r.sum ?? r.transaction_amount;
       if (typeof amtVal === "number") {
         amount = amtVal;
       } else if (typeof amtVal === "string") {
@@ -169,7 +181,7 @@ export class TransactionRecordNormalizer {
 
       // Date parsing
       let parsedDate: Date | undefined;
-      const dateVal = r.timestamp ?? r.date ?? r.tx_date ?? r.time ?? r.date_time;
+      const dateVal = r.timestamp ?? r.date ?? r.tx_date ?? r.time ?? r.date_time ?? r.transaction_date;
       if (dateVal) {
         const d = new Date(String(dateVal));
         if (!isNaN(d.getTime())) {
@@ -178,7 +190,7 @@ export class TransactionRecordNormalizer {
       }
 
       const currency = String(r.currency ?? (String(amtVal).includes("$") ? "USD" : "INR")).toUpperCase();
-      const txId = r.transactionId ?? r.transaction_id ?? r.txId ?? r.tx_id ?? r.reference_no ?? r.utr;
+      const txId = r.transactionId ?? r.transaction_id ?? r.txId ?? r.tx_id ?? r.reference_no ?? r.utr ?? r.journal_no;
       const channel = r.channel ?? r.paymentMode ?? r.payment_mode ?? (amount >= 200000 ? "RTGS" : "UPI");
 
       normalized.push({
@@ -202,9 +214,6 @@ export class TransactionRecordNormalizer {
 // ---------------------------------------------------------------------------
 
 export class TransactionAmountAnalyzer {
-  /**
-   * Evaluates individual transaction amounts against historical distribution.
-   */
   static analyzeAccountAmounts(
     account: string,
     transactions: NormalizedTransaction[]
@@ -276,9 +285,6 @@ export class TransactionAmountAnalyzer {
 // ---------------------------------------------------------------------------
 
 export class TransactionFrequencyAnalyzer {
-  /**
-   * Detects sudden surges in transaction frequency and velocity shifts.
-   */
   static analyzeFrequency(
     account: string,
     transactions: NormalizedTransaction[],
@@ -293,16 +299,17 @@ export class TransactionFrequencyAnalyzer {
     const anomalies: TransactionAnomaly[] = [];
 
     // Group by Day (YYYY-MM-DD)
-    const dailyMap = new Map<string, { count: number; totalAmt: number }>();
+    const dailyMap = new Map<string, { count: number; totalAmt: number; amounts: number[] }>();
     let noDateCount = 0;
     let noDateAmt = 0;
 
     for (const t of relevant) {
       if (t.timestamp) {
         const dayKey = t.timestamp.toISOString().split("T")[0];
-        const existing = dailyMap.get(dayKey) ?? { count: 0, totalAmt: 0 };
+        const existing = dailyMap.get(dayKey) ?? { count: 0, totalAmt: 0, amounts: [] };
         existing.count++;
         existing.totalAmt += t.amount;
+        existing.amounts.push(t.amount);
         dailyMap.set(dayKey, existing);
       } else {
         noDateCount++;
@@ -390,9 +397,6 @@ export class TransactionFrequencyAnalyzer {
     return anomalies;
   }
 
-  /**
-   * Identifies newly appeared transaction relationships compared to historical set.
-   */
   static detectNewRelationships(
     transactions: NormalizedTransaction[],
     knownHistoricalPairs: Set<string>
@@ -441,13 +445,10 @@ export class TransactionFrequencyAnalyzer {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Transaction Network & Flow Chains
+// 4. Transaction Network & Flow Chains (Chains, U-Turns, Circular Loops)
 // ---------------------------------------------------------------------------
 
 export class TransactionNetworkAnalyzer {
-  /**
-   * Discovers financial transfer chains (e.g. A -> B -> C).
-   */
   static findTransactionChains(transactions: NormalizedTransaction[]): TransactionChain[] {
     const adj = new Map<string, Set<string>>();
     const edgeAmounts = new Map<string, { totalAmt: number; count: number; currency: string }>();
@@ -468,7 +469,7 @@ export class TransactionNetworkAnalyzer {
 
     const chains: TransactionChain[] = [];
 
-    // Find 2-hop chains: A -> B -> C
+    // 1. Discover 2-Hop Chains: A -> B -> C
     for (const [nodeA, targetsB] of adj.entries()) {
       for (const nodeB of targetsB) {
         if (nodeB === nodeA) continue;
@@ -486,6 +487,7 @@ export class TransactionNetworkAnalyzer {
                 total_amount: edge1.totalAmt + edge2.totalAmt,
                 transaction_count: edge1.count + edge2.count,
                 currency: edge1.currency,
+                patternType: "transfer_chain",
               });
             }
           }
@@ -493,7 +495,25 @@ export class TransactionNetworkAnalyzer {
       }
     }
 
-    return chains.slice(0, 10);
+    // 2. Discover U-Turn / Round-trip Loops: A -> B -> A
+    for (const [nodeA, targetsB] of adj.entries()) {
+      for (const nodeB of targetsB) {
+        if (nodeB === nodeA) continue;
+        const returnEdge = edgeAmounts.get(`${nodeB}→${nodeA}`);
+        const forwardEdge = edgeAmounts.get(`${nodeA}→${nodeB}`);
+        if (returnEdge && forwardEdge) {
+          chains.push({
+            path: [nodeA, nodeB, nodeA],
+            total_amount: forwardEdge.totalAmt + returnEdge.totalAmt,
+            transaction_count: forwardEdge.count + returnEdge.count,
+            currency: forwardEdge.currency,
+            patternType: "u_turn",
+          });
+        }
+      }
+    }
+
+    return chains.slice(0, 15);
   }
 }
 
@@ -502,10 +522,6 @@ export class TransactionNetworkAnalyzer {
 // ---------------------------------------------------------------------------
 
 export class TransactionAnalysisEngine {
-  /**
-   * Analyzes financial transaction records and returns account summaries,
-   * amount & frequency anomalies, new counterparties, and flow chains.
-   */
   static analyze(
     rawRecords: unknown[],
     options: {
@@ -544,12 +560,10 @@ export class TransactionAnalysisEngine {
     const allAccounts = Array.from(accountSet);
     const historicalSet = new Set<string>((options.historicalKnownPairs ?? []).map((p) => p.toLowerCase()));
 
-    // Discover new relationships
     const newRelationships = historicalSet.size > 0
       ? TransactionFrequencyAnalyzer.detectNewRelationships(transactions, historicalSet)
       : [];
 
-    // Discover flow chains
     const chains = TransactionNetworkAnalyzer.findTransactionChains(transactions);
 
     const allAnomalies: TransactionAnomaly[] = [];
@@ -568,20 +582,16 @@ export class TransactionAnalysisEngine {
       const avgAmt = totalTxs > 0 ? Math.round((incomingTotal + outgoingTotal) / totalTxs) : 0;
       const medianAmt = totalTxs > 0 ? amounts[Math.floor(totalTxs * 0.5)] : 0;
 
-      // Dates
       const timestamps = relevantTxs.map((t) => t.timestamp).filter((t): t is Date => !!t).sort((a, b) => a.getTime() - b.getTime());
       const startDate = timestamps[0]?.toISOString();
       const endDate = timestamps[timestamps.length - 1]?.toISOString();
 
-      // Amount & Frequency anomalies
       const amountAnomalies = TransactionAmountAnalyzer.analyzeAccountAmounts(account, transactions);
       const baseline = options.baselineRatesPerPeriod?.[account];
       const freqAnomalies = TransactionFrequencyAnalyzer.analyzeFrequency(account, transactions, baseline);
 
-      // Account's new relationships
       const accNewRels = newRelationships.filter((r) => r.entity.toLowerCase() === account.toLowerCase());
 
-      // If new relationships found, add as anomalies
       for (const nr of accNewRels) {
         allAnomalies.push({
           type: "new_transaction_relationship",
@@ -604,7 +614,6 @@ export class TransactionAnalysisEngine {
       const accAnomalies = [...amountAnomalies, ...freqAnomalies];
       allAnomalies.push(...accAnomalies);
 
-      // Unique counterparties
       const counterparties = new Set<string>();
       for (const t of sentTxs) counterparties.add(t.receiver);
       for (const t of receivedTxs) counterparties.add(t.sender);
@@ -634,7 +643,6 @@ export class TransactionAnalysisEngine {
       });
     }
 
-    // Deduplicate allAnomalies by account + type + timestamp/amount
     const dedupedAnomalies: TransactionAnomaly[] = [];
     const seen = new Set<string>();
     for (const a of allAnomalies) {

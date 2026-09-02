@@ -10,8 +10,9 @@ class SupabaseService:
     using the service role key to query all 9 populated tables and application state tables.
     """
     def __init__(self):
-        self.url = (settings.SUPABASE_URL or "").rstrip("/")
-        self.key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or ""
+        url = settings.SUPABASE_URL or os.getenv("SUPABASE_URL") or "https://ktzzlqekrycezqtghhpt.supabase.co"
+        self.url = url.rstrip("/")
+        self.key = settings.SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMxODM2NSwiZXhwIjoyMTAzODk0MzY1fQ.SlUga2TMUyjfBQC2Ds4SgGvB0mpBIEAhZP0mgdKPcwg"
         self.session = requests.Session()
         self.session.headers.update({
             "apikey": self.key,

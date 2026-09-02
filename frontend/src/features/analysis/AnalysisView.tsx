@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { caseService, Case, TimelineEventItem, CommunicationItem, TransactionItem, LocationItem } from '../../services/cases';
 import { analysisService, NERResult, EntityMatchRecord } from '../../services/analysis';
+import { RelationshipNetwork3D } from './RelationshipNetwork3D';
 import { 
   Network, 
   Clock, 
@@ -83,12 +84,35 @@ export const AnalysisView: React.FC = () => {
       const summary = await analysisService.summarizeCase(`${selectedCase?.title ?? 'Selected case'} ${selectedCase?.description ?? ''}`);
       const leads = await analysisService.generateLeads(network.nodes[0]?.id, selectedCaseId);
       setModelOutput(JSON.stringify({
+        selectedCaseId,
+        supabase: supabaseStatus,
+        graphAnalysis: {
+          nodes: network.nodes.length,
+          relationships: network.edges.length,
+        },
         relationships: relationships.relationships.length,
-        communicationAnomalies: communicationAnomalies.anomalies.length,
-        transactionAnomalies: transactionAnomalies.anomalies.length,
-        temporalActivities: Array.isArray(temporal.timeline) ? temporal.timeline.length : 0,
-        summaryFallback: summary.fallback,
-        leads: leads.leads.length,
+        communicationAnalysis: {
+          records: comms.length,
+          anomalies: communicationAnomalies.anomalies.length,
+        },
+        transactionAnalysis: {
+          records: txns.length,
+          anomalies: transactionAnomalies.anomalies.length,
+        },
+        locationAnalysis: {
+          records: locations.length,
+        },
+        temporalPatternDetection: {
+          activities: Array.isArray(temporal.timeline) ? temporal.timeline.length : 0,
+        },
+        investigationSummarizer: {
+          fallback: summary.fallback,
+          confidence: summary.confidence,
+        },
+        investigationLeadGenerator: {
+          leads: leads.leads.length,
+        },
+        modelWiring: modelHealth,
       }, null, 2));
     } catch (err) {
       setModelOutput(err instanceof Error ? err.message : 'Model execution failed.');
@@ -246,8 +270,10 @@ export const AnalysisView: React.FC = () => {
           {network.nodes.length === 0 ? (
             <div className="p-12 text-center text-slate-500 text-sm">No linked entities in this case.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <>
+              <RelationshipNetwork3D network={network} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-slate-400 uppercase font-mono">Nodes (Entities)</h4>
                 {network.nodes.map(n => (
                   <div key={n.id} className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 flex items-center justify-between">
@@ -258,8 +284,8 @@ export const AnalysisView: React.FC = () => {
                     <span className="text-xs font-mono text-amber-400">{n.riskScore}% Risk</span>
                   </div>
                 ))}
-              </div>
-              <div className="space-y-2">
+                </div>
+                <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-slate-400 uppercase font-mono">Edges (Relationships)</h4>
                 {network.edges.map(e => (
                   <div key={e.id} className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
@@ -267,8 +293,9 @@ export const AnalysisView: React.FC = () => {
                     <span className="font-mono text-emerald-400">{e.strength}% Strength</span>
                   </div>
                 ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       ) : activeTab === 'timeline' ? (

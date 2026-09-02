@@ -8,10 +8,11 @@ investigative leads requiring human verification — never guilt determinations.
 
 - Next.js 14 (TypeScript, App Router)
 - Tailwind CSS (dark saffron-accent theme)
-- Prisma ORM + SQLite (`prisma/dev.db`)
+- Prisma ORM + SQLite (`prisma/dev.db`) — switchable to Supabase PostgreSQL
 - NextAuth.js (Credentials provider, JWT sessions)
 - Custom SHA-256 chained ledger (`lib/blockchain.ts`)
 - Deterministic "mock" AI layer (`lib/ai.ts`, no external LLM required)
+- Pluggable storage (`backend/infrastructure/storage/`): local filesystem ↔ Supabase Storage
 
 ## Getting Started
 
@@ -107,6 +108,28 @@ Prisma schema (`prisma/schema.prisma`) covers:
 | `/api/intel-data/path` | GET | multi-hop path search |
 | `/api/intel-data/entity/[id]/links` | GET | entity connections |
 | `/api/reports` | GET | report generation |
+| `/api/search` | GET | global investigation search (cases/entities/evidence) |
+
+## Supabase
+
+The platform runs on the local SQLite + filesystem stack out of the box. To
+move the data layer to Supabase (PostgreSQL + Storage), follow the migration
+guide:
+
+- **Guide:** [`backend/infrastructure/database/migrate-to-supabase.md`](backend/infrastructure/database/migrate-to-supabase.md)
+- **RLS policies:** [`backend/infrastructure/database/setup-supabase.sql`](backend/infrastructure/database/setup-supabase.sql)
+
+Highlights:
+
+- Prisma ORM points at Supabase Postgres by changing `DATABASE_URL` (schema is Postgres-compatible).
+- Evidence/document files move to a private/public storage bucket via the
+  pluggable storage layer (`backend/infrastructure/storage/`). A single env
+  toggle (`STORAGE_DRIVER`) swaps filesystem ↔ Supabase Storage; mixed-backend
+  reads are supported during transition.
+- The **Supabase service role key is server-only** — `backend/infrastructure/supabase/client.ts`
+  guards against any client-side use, and nothing in the UI reads it.
+- RLS is enforced on all tables as defense-in-depth (the app itself accesses
+  the DB with the service role via Prisma, which bypasses RLS).
 
 ## Notes
 

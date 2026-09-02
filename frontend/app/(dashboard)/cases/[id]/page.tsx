@@ -88,10 +88,12 @@ export default async function CaseDetailPage({
             ) : (
               <div className="flex flex-wrap gap-2">
                 {c.entities.map((e) => (
-                  <Badge key={e.id} variant="outline" className="gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: entityColor(e.type) }} />
-                    {e.name}
-                  </Badge>
+                  <Link key={e.id} href={`/entities/${e.id}`}>
+                    <Badge variant="outline" className="gap-1.5 hover:border-accent/50">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: entityColor(e.type) }} />
+                      {e.name}
+                    </Badge>
+                  </Link>
                 ))}
               </div>
             )}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { prisma } from "@backend/lib/prisma";
 import { getSession } from "@backend/lib/auth";
@@ -65,9 +66,10 @@ export default async function EntitiesPage() {
                   {entities.map((e) => {
                     const color = entityColor(e.type);
                     return (
-                      <div
+                      <Link
                         key={e.id}
-                        className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-raised/40 px-3 py-2"
+                        href={`/entities/${e.id}`}
+                        className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-raised/40 px-3 py-2 transition-colors hover:border-accent/40"
                       >
                         <span
                           className="flex h-7 w-7 items-center justify-center rounded-md"
@@ -79,7 +81,7 @@ export default async function EntitiesPage() {
                           <p className="truncate text-sm text-foreground">{e.name}</p>
                           <p className="text-[11px] text-muted">{entityLabel(e.type)}</p>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
@@ -101,8 +103,10 @@ export default async function EntitiesPage() {
               matches.map((m) => (
                 <div key={m.id} className="rounded-lg border border-border bg-surface-raised/40 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm text-foreground">
-                      {m.entityA.name} <span className="text-muted">↔</span> {m.entityB.name}
+                    <div className="min-w-0 text-sm text-foreground">
+                      <Link href={`/entities/${m.entityA.id}`} className="font-medium hover:text-accent">{m.entityA.name}</Link>
+                      <span className="text-muted"> ↔ </span>
+                      <Link href={`/entities/${m.entityB.id}`} className="font-medium hover:text-accent">{m.entityB.name}</Link>
                     </div>
                     <Badge variant={m.confidence >= 75 ? "warning" : "outline"}>
                       {m.confidence}%

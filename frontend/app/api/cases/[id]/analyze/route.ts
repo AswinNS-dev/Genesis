@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@backend/lib/auth";
 import { prisma } from "@backend/lib/prisma";
-import { summarizeInvestigation, generateLeads, detectPatterns } from "@backend/lib/ai";
+import { analysisService } from "@backend/services/analysis.service";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +45,8 @@ export async function POST(
       (sharedVehicles[r.target.name] ??= []).push(r.source.name);
     }
   }
-  const patterns = await detectPatterns({
+
+  const context = {
     people: people.map((n) => ({ name: n, events: events.map(() => ({ type: "GENERAL" })) })),
     locations: Object.entries(locEntities).map(([name, entities]) => ({ name, entities })),
     calls: Object.entries(callCounts).map(([k, count]) => {
@@ -54,27 +55,32 @@ export async function POST(
     }),
     sharedVehicles: Object.entries(sharedVehicles).map(([vehicle, people]) => ({ vehicle, people })),
     transactionChains: [],
-  });
+  };
 
-  const summary = await summarizeInvestigation({
-    people,
-    organizations: orgs,
-    locations,
-    relationshipCount: cs.relationships.length,
-    relationships,
-    events,
-    patterns: patterns.map((p) => p.title),
-    caseId: cs.caseId,
-  });
-
-  const leads = await generateLeads({
-    relationships: relationships.slice(0, 3).map((label) => {
-      const [a, b] = label.split(" ↔ ");
-      return { label: `${a} ↔ ${b}`, people: [a, b] };
+  const patterns = await analysisService.detectPatterns(context);
+  const [anomalies, summary, leads] = await Promise.all([
+    analysisService.detectAnomalies(context),
+    analysisService.summarize({
+      people: context.people,
+      organizations: orgs,
+      locations: locations.map((name) => ({ name, entities: [] })),
+      relationships: relationships.slice(0, 6).map((label) => {
+        const [a = "", b = ""] = label.split(" ↔ ");
+        return { type: "CASE", sourceName: a, targetName: b };
+      }),
+      events: events.map((summary) => ({ summary, type: "GENERAL" })),
+      transactionChains: patterns.map((p) => p.title),
+      caseId: cs.caseId,
     }),
-    repeatedLocations: locations,
-    transactionChains: [],
-  });
+    analysisService.generateLeads({
+      relationships: relationships.slice(0, 3).map((label) => {
+        const [a = "", b = ""] = label.split(" ↔ ");
+        return { type: "CASE", sourceName: a, targetName: b, strength: 0 };
+      }),
+      locations: locations.map((name) => ({ name, entities: [people[0] ?? ""].filter(Boolean) })),
+      transactionChains: [],
+    }),
+  ]);
 
   // Persist generated patterns into the Pattern table (dedupe by title).
   for (const p of patterns) {
@@ -95,6 +101,16 @@ export async function POST(
     }
   }
 
+  // Persist anomalies + high-severity patterns as AI alerts (dedupe by message).
+  for (const a of anomalies) {
+    const exists = await prisma.aIAlert.findFirst({ where: { type: "PATTERN", message: a.title } });
+    if (!exists) {
+      await prisma.aIAlert.create({
+        data: { type: "PATTERN", severity: a.severity, message: a.title, detail: a.description },
+      });
+    }
+  }
+
   await prisma.auditLog.create({
     data: {
       userId: (session.user as { id?: string }).id,
@@ -104,5 +120,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ caseId: cs.caseId, summary, leads, patterns });
+  return NextResponse.json({ caseId: cs.caseId, summary, leads, patterns, anomalies });
 }

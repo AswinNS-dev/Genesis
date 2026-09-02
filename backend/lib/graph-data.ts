@@ -1,6 +1,6 @@
 // Server-side helpers to build graph structures and analyses from Prisma data.
 import { prisma } from "@backend/lib/prisma";
-import { entityColor, relationColor } from "@/components/entities/entity-helpers";
+import { entityColor, relationColor } from "@backend/lib/colors";
 
 export interface GraphNode {
   id: string;

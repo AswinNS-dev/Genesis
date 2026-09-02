@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@backend/lib/auth";
 import { prisma } from "@backend/lib/prisma";
-import { entityColor, relationColor } from "@/components/entities/entity-helpers";
+import { entityColor, relationColor } from "@backend/lib/colors";
 
 export const dynamic = "force-dynamic";
 

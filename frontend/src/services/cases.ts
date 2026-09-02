@@ -14,6 +14,14 @@ export interface Case {
   updatedAt: string;
   entityCount?: number;
   documentCount?: number;
+  accusedName?: string;
+  victimName?: string;
+  policeStation?: string;
+  courtName?: string;
+  ipcSections?: string;
+  courtStatus?: string;
+  bailStatus?: string;
+  riskScore?: number;
 }
 
 export interface CaseSummaryResponse {
@@ -62,11 +70,13 @@ export interface CommunicationItem {
   callerName?: string;
   receiverName?: string;
   type: string;
-  durationSec: number;
+  durationSec?: number;
+  duration?: string;
   timestamp: string;
   cellTower?: string;
-  isAnomaly: boolean;
-  anomalyReason?: string;
+  location?: string;
+  isAnomaly?: boolean;
+  flagged?: boolean;
 }
 
 export interface TransactionItem {
@@ -76,11 +86,12 @@ export interface TransactionItem {
   senderAccount?: string;
   receiverAccount?: string;
   amount: number;
-  currency: string;
-  transactionType: string;
+  currency?: string;
+  transactionType?: string;
+  type?: string;
   timestamp: string;
-  isSuspicious: boolean;
-  suspiciousReason?: string;
+  isSuspicious?: boolean;
+  suspicious?: boolean;
 }
 
 export interface LocationItem {
@@ -89,23 +100,29 @@ export interface LocationItem {
   address?: string;
   latitude?: number;
   longitude?: number;
+  coordinates?: string;
   subjectName?: string;
-  timestamp: string;
-  sourceType: string;
-  speedKmh: number;
+  timestamp?: string;
+  firstSeen?: string;
+  lastSeen?: string;
+  sourceType?: string;
+  type?: string;
+  activityCount?: number;
 }
 
 export const caseService = {
-  getCases: async (status?: string, search?: string): Promise<Case[]> => {
+  getCases: async (status?: string, search?: string, limit: number = 100, offset: number = 0): Promise<Case[]> => {
     const params = new URLSearchParams();
     if (status && status !== 'ALL') params.append('status', status);
     if (search) params.append('search', search);
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiRequest<Case[]>(`/cases${query}`);
   },
 
   getCase: async (id: string): Promise<Case> => {
-    return apiRequest<Case>(`/cases/${id}`);
+    return apiRequest<Case>(`/cases/${encodeURIComponent(id)}`);
   },
 
   createCase: async (data: Partial<Case>): Promise<Case> => {
@@ -116,33 +133,33 @@ export const caseService = {
   },
 
   updateCase: async (id: string, data: Partial<Case>): Promise<Case> => {
-    return apiRequest<Case>(`/cases/${id}`, {
+    return apiRequest<Case>(`/cases/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   },
 
   getSummary: async (caseId: string): Promise<CaseSummaryResponse> => {
-    return apiRequest<CaseSummaryResponse>(`/cases/${caseId}/summary`);
+    return apiRequest<CaseSummaryResponse>(`/cases/${encodeURIComponent(caseId)}/summary`);
   },
 
   getNetwork: async (caseId: string): Promise<CaseNetworkResponse> => {
-    return apiRequest<CaseNetworkResponse>(`/cases/${caseId}/network`);
+    return apiRequest<CaseNetworkResponse>(`/cases/${encodeURIComponent(caseId)}/network`);
   },
 
   getTimeline: async (caseId: string): Promise<TimelineEventItem[]> => {
-    return apiRequest<TimelineEventItem[]>(`/cases/${caseId}/timeline`);
+    return apiRequest<TimelineEventItem[]>(`/cases/${encodeURIComponent(caseId)}/timeline`);
   },
 
   getCommunications: async (caseId: string): Promise<CommunicationItem[]> => {
-    return apiRequest<CommunicationItem[]>(`/cases/${caseId}/communications`);
+    return apiRequest<CommunicationItem[]>(`/cases/${encodeURIComponent(caseId)}/communications`);
   },
 
   getTransactions: async (caseId: string): Promise<TransactionItem[]> => {
-    return apiRequest<TransactionItem[]>(`/cases/${caseId}/transactions`);
+    return apiRequest<TransactionItem[]>(`/cases/${encodeURIComponent(caseId)}/transactions`);
   },
 
   getLocations: async (caseId: string): Promise<LocationItem[]> => {
-    return apiRequest<LocationItem[]>(`/cases/${caseId}/locations`);
+    return apiRequest<LocationItem[]>(`/cases/${encodeURIComponent(caseId)}/locations`);
   },
 };

@@ -1,16 +1,42 @@
 import { apiRequest } from './api';
-import { Entity } from '../types';
+
+export interface EntityItem {
+  id: string;
+  name: string;
+  type: string;
+  aliases?: string;
+  value?: string;
+  metadata_json?: string;
+  riskScore: number;
+  caseId?: string;
+  createdAt: string;
+}
 
 export const entityService = {
-  list: (type?: string, search?: string) => {
+  getEntities: async (type?: string, search?: string, caseId?: string): Promise<EntityItem[]> => {
     const params = new URLSearchParams();
-    if (type) params.append('type', type);
+    if (type && type !== 'ALL') params.append('type', type);
     if (search) params.append('search', search);
-    return apiRequest<Entity[]>(`/entities?${params.toString()}`);
+    if (caseId) params.append('caseId', caseId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest<EntityItem[]>(`/entities${query}`);
   },
-  create: (data: Partial<Entity>) =>
-    apiRequest<Entity>('/entities', {
+
+  getEntity: async (id: string): Promise<EntityItem> => {
+    return apiRequest<EntityItem>(`/entities/${id}`);
+  },
+
+  createEntity: async (data: Partial<EntityItem>): Promise<EntityItem> => {
+    return apiRequest<EntityItem>('/entities', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
+
+  updateEntity: async (id: string, data: Partial<EntityItem>): Promise<EntityItem> => {
+    return apiRequest<EntityItem>(`/entities/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
 };

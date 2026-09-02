@@ -1,11 +1,5 @@
 {
-  "evaluation_type": "WEAKLY SUPERVISED",
-  "precision": 0.9991118216537881,
-  "recall": 1.0,
-  "f1": 0.9995557135240803,
-  "roc_auc": 0.9999998325278555,
-  "precision_at_5": 1.0,
-  "precision_at_10": 1.0,
-  "precision_at_20": 1.0,
-  "model_version": "lead_generator_v1.0"
+  "status": "TRAINED",
+  "total_candidates": 45752,
+  "positive_leads": 11249
 }

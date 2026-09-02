@@ -10,9 +10,16 @@ class SupabaseService:
     using the service role key to query all 9 populated tables and application state tables.
     """
     def __init__(self):
-        url = settings.SUPABASE_URL or os.getenv("SUPABASE_URL") or "https://ktzzlqekrycezqtghhpt.supabase.co"
+        url = (settings.SUPABASE_URL or os.getenv("SUPABASE_URL") or "").strip()
+        if not url or not url.startswith("http"):
+            url = "https://ktzzlqekrycezqtghhpt.supabase.co"
         self.url = url.rstrip("/")
-        self.key = settings.SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMxODM2NSwiZXhwIjoyMTAzODk0MzY1fQ.SlUga2TMUyjfBQC2Ds4SgGvB0mpBIEAhZP0mgdKPcwg"
+
+        key = (settings.SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+        if not key or len(key) < 20:
+            key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMxODM2NSwiZXhwIjoyMTAzODk0MzY1fQ.SlUga2TMUyjfBQC2Ds4SgGvB0mpBIEAhZP0mgdKPcwg"
+        self.key = key
+
         self.session = requests.Session()
         self.session.headers.update({
             "apikey": self.key,

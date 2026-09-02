@@ -38,3 +38,34 @@ def find_path_endpoint(
     user: User = Depends(get_current_user)
 ):
     return find_shortest_paths(db, source, target)
+
+@router.get("/temporal")
+@router.post("/temporal")
+def temporal_anomaly_endpoint(
+    caseId: str = Query(None),
+    crimeTimestamp: str = Query(None),
+    beforeWindowMinutes: int = Query(120),
+    afterWindowMinutes: int = Query(120),
+    baselineDays: int = Query(30),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    from backend.app.services.temporal_service import TemporalService
+    if not caseId:
+        raise HTTPException(status_code=400, detail="caseId is required")
+    service = TemporalService(db)
+    try:
+        from datetime import datetime
+        crime_dt = datetime.fromisoformat(crimeTimestamp.replace("Z", "+00:00")) if crimeTimestamp else None
+        return service.detect_temporal_anomalies(
+            case_id=caseId,
+            crime_timestamp=crime_dt,
+            before_window_minutes=beforeWindowMinutes,
+            after_window_minutes=afterWindowMinutes,
+            baseline_days=baselineDays
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

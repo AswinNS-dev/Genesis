@@ -13,6 +13,7 @@ import {
   Settings,
   Clock,
   Share2,
+  GitCompare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -89,6 +90,12 @@ export const navGroups: NavGroup[] = [
         href: "/temporal",
         icon: Clock,
         description: "Pre/post crime temporal anomaly detection",
+      },
+      {
+        title: "Entity Resolution",
+        href: "/entity-resolution",
+        icon: GitCompare,
+        description: "Phonetic matching, multi-signal evidence & identity review",
       },
     ],
   },

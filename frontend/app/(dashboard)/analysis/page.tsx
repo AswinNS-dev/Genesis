@@ -19,6 +19,7 @@ import {
   Users2,
   Target,
   GitMerge,
+  Clock,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, EmptyState } from "@/components/ui/state";
 import { NetworkGraph, type GraphNode, type GraphLink } from "@/components/network/network-graph";
+import { TemporalDetection } from "@/components/temporal/temporal-detection";
 import { entityColor, relationColor } from "@backend/lib/colors";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,7 @@ const SEVERITY_VARIANT: Record<string, "danger" | "warning" | "info" | "default"
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "temporal", label: "Temporal Detection", icon: Clock },
   { key: "network", label: "Network", icon: Share2 },
   { key: "timeline", label: "Timeline", icon: CalendarDays },
   { key: "locations", label: "Locations", icon: MapPin },
@@ -179,6 +182,10 @@ export default function AnalysisWorkspacePage() {
               generating={generating}
               onGenerate={generateSummary}
             />
+          ) : null}
+
+          {tab === "temporal" ? (
+            <TemporalDetection initialCaseId={selectedCaseId} />
           ) : null}
 
           {tab === "network" ? <NetworkTab nodes={nodes} links={links} /> : null}

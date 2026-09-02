@@ -7,7 +7,12 @@ import { prisma } from "../lib/prisma";
 export interface CreateCaseInput {
   title: string;
   description?: string;
+  status?: string;
   classification?: string;
+  category?: string;
+  caseSource?: string;
+  incidentDate?: Date | null;
+  jurisdiction?: string;
   assignedInvestigator?: string;
   userId?: string;
 }
@@ -51,7 +56,12 @@ export class CaseService {
         caseId: caseNo,
         title: input.title,
         description: input.description,
+        status: input.status ?? "OPEN",
         classification: input.classification ?? "RESTRICTED",
+        category: input.category ?? null,
+        caseSource: input.caseSource ?? null,
+        incidentDate: input.incidentDate ?? null,
+        jurisdiction: input.jurisdiction ?? null,
         assignedInvestigator: input.assignedInvestigator,
         createdById: input.userId,
       },

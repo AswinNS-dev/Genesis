@@ -9,7 +9,6 @@ import {
   Wand2,
   Link2,
   ClipboardCheck,
-  UploadCloud,
   FileSpreadsheet,
   FileJson,
   FileText,
@@ -23,6 +22,7 @@ import { LoadingState, EmptyState } from "@/components/ui/state";
 import { IngestPanel } from "@/components/data-workspace/ingest-panel";
 import { DatasetList } from "@/components/data-workspace/dataset-list";
 import { ReviewQueue } from "@/components/data-workspace/review-queue";
+import { FileUploadPanel } from "@/components/data-workspace/file-upload-panel";
 
 const STAGES = [
   {
@@ -102,6 +102,11 @@ export default function DataWorkspacePage() {
   const [cases, setCases] = useState<CaseOption[]>([]);
   const [loading, setLoading] = useState(true);
 
+  async function refreshDocuments() {
+    const d = await fetch("/api/intel-data?scope=documents").then((r) => r.json());
+    setDocuments(d.evidence ?? []);
+  }
+
   async function refreshDatasets() {
     const ds = await fetch("/api/datasets").then((r) => r.json());
     setDatasets(ds.datasets ?? []);
@@ -134,13 +139,22 @@ export default function DataWorkspacePage() {
         actions={
           <Link
             href="/documents"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-background hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised"
           >
-            <UploadCloud className="h-4 w-4" />
-            Upload document
+            <FileText className="h-4 w-4" />
+            Documents library
           </Link>
         }
       />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <FileUploadPanel cases={cases} onUploaded={refreshDocuments} />
+        <div className="lg:col-span-2">
+          <IngestPanel cases={cases} onIngested={refreshDatasets} />
+        </div>
+      </div>
+
+      <ReviewQueue onChanged={refreshDatasets} />
 
       {/* Pipeline stages */}
       <Card>
@@ -179,10 +193,6 @@ export default function DataWorkspacePage() {
           </div>
         </CardContent>
       </Card>
-
-      <IngestPanel cases={cases} />
-
-      <ReviewQueue onChanged={refreshDatasets} />
 
       {/* Datasets */}
       <Card>

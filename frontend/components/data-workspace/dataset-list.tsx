@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Database, Loader2, Link2, Check, X } from "lucide-react";
+import { ChevronDown, Database, Loader2, Link2, Check, X, ChartColumn, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadingState, EmptyState } from "@/components/ui/state";
@@ -16,6 +16,22 @@ type DatasetInfo = {
   createdAt: string;
   _count: { records: number };
   error?: string | null;
+  analysisScope?: string | null;
+};
+
+type AnalyzeResult = {
+  scope: string;
+  caseId?: string | null;
+  entityCount: number;
+  summary?: {
+    overview: string;
+    keyEntities: string[];
+    majorRelationships: string[];
+    importantPatterns: string[];
+    timelineHighlights: string[];
+  };
+  leads?: { title: string; detail: string }[];
+  patterns?: { type: string; title: string; severity: string; relevance: number }[];
 };
 
 type DetailRecord = {
@@ -49,6 +65,9 @@ export function DatasetList({ datasets, onIngested }: { datasets: DatasetInfo[];
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [matchingId, setMatchingId] = useState<string | null>(null);
   const [matchNote, setMatchNote] = useState<string | null>(null);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<Record<string, AnalyzeResult | null>>({});
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   async function toggle(ds: DatasetInfo) {
     if (openId === ds.id) {
@@ -64,6 +83,21 @@ export function DatasetList({ datasets, onIngested }: { datasets: DatasetInfo[];
       setDetail((d) => ({ ...d, [ds.id]: data }));
     } finally {
       setLoadingId(null);
+    }
+  }
+
+  async function runAnalysis(dsId: string) {
+    setAnalyzingId(dsId);
+    setAnalysisError(null);
+    try {
+      const res = await fetch(`/api/datasets/${dsId}/analyze`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Analysis failed");
+      setAnalysis((a) => ({ ...a, [dsId]: data }));
+    } catch (e) {
+      setAnalysisError(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setAnalyzingId(null);
     }
   }
 
@@ -112,8 +146,11 @@ export function DatasetList({ datasets, onIngested }: { datasets: DatasetInfo[];
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-foreground">{ds.name}</span>
-                <span className="block text-[10px] text-muted">
+                <span className="flex items-center gap-1.5 text-[10px] text-muted">
                   {ds.sourceType} · {ds._count.records} records · {new Date(ds.createdAt).toLocaleDateString()}
+                  <span className="rounded bg-border/50 px-1 py-0.5">
+                    {ds.analysisScope === "DATASET_ONLY" ? "dataset-only" : "combined"}
+                  </span>
                 </span>
               </span>
               {ds.error ? (
@@ -131,15 +168,29 @@ export function DatasetList({ datasets, onIngested }: { datasets: DatasetInfo[];
                 ) : detail[ds.id] ? (
                   <>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => runAnalysis(ds.id)} disabled={analyzingId === ds.id}>
+                        {analyzingId === ds.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChartColumn className="h-3.5 w-3.5" />}
+                        {analyzingId === ds.id ? "Analyzing…" : "Analyze dataset"}
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => runMatching(ds.id)} disabled={matchingId === ds.id || ds.status !== "READY"}>
                         {matchingId === ds.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
                         {matchingId === ds.id ? "Scoring…" : "Run entity matching"}
                       </Button>
-                      <span className="text-[11px] text-muted">Potential matches never auto-merge — each requires investigator review.</span>
+                      <span className="flex items-center gap-1 text-[11px] text-muted">
+                        <ShieldCheck className="h-3 w-3" />
+                        {ds.analysisScope === "DATASET_ONLY"
+                          ? "Analysis restricted to this dataset's records."
+                          : "Analysis runs across the linked case's full context."}
+                      </span>
                     </div>
+                    {analysisError ? (
+                      <div className="mb-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-red-200">{analysisError}</div>
+                    ) : null}
+                    {analysis[ds.id] ? <AnalysisResultView result={analysis[ds.id] as AnalyzeResult} /> : null}
                     {matchNote ? (
                       <div className="mb-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-accent">{matchNote}</div>
                     ) : null}
+                    <p className="mb-3 text-[11px] text-muted">Potential matches never auto-merge — each requires investigator review.</p>
                     <RecordsTable detail={detail[ds.id] as DetailResponse} onReviewed={() => refreshDetail(ds.id)} />
                   </>
                 ) : null}
@@ -148,6 +199,61 @@ export function DatasetList({ datasets, onIngested }: { datasets: DatasetInfo[];
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function AnalysisResultView({ result }: { result: AnalyzeResult }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="mb-3 rounded-lg border border-accent/25 bg-accent/5 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <ChartColumn className="h-4 w-4 text-accent" />
+        <span className="text-xs font-medium text-foreground">Analysis complete</span>
+        <Badge variant={result.scope === "DATASET_ONLY" ? "warning" : "success"}>
+          {result.scope === "DATASET_ONLY" ? "dataset-only" : "combined"}
+        </Badge>
+        <span className="ml-auto text-[11px] text-muted">{result.entityCount} entities</span>
+      </div>
+      {result.summary?.overview ? (
+        <p className="mt-2 text-xs text-foreground/80">{result.summary.overview}</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+      >
+        <ChevronDown className={cn("h-3 w-3 transition-transform", expanded ? "rotate-180" : "")} />
+        {expanded ? "Hide detail" : "View leads & patterns"}
+      </button>
+      {expanded ? (
+        <div className="mt-2 space-y-3">
+          {result.leads && result.leads.length ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Leads</p>
+              <ul className="mt-1 space-y-1">
+                {result.leads.map((l, i) => (
+                  <li key={i} className="text-xs text-foreground/80">• {l.title} — {l.detail}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {result.patterns && result.patterns.length ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Patterns</p>
+              <ul className="mt-1 space-y-1">
+                {result.patterns.map((p, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-foreground/80">
+                    <Badge variant={p.severity === "HIGH" ? "danger" : p.severity === "MEDIUM" ? "warning" : "info"}>{p.severity}</Badge>
+                    {p.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <p className="text-[10px] italic text-muted">AI insights are investigative leads and require human verification.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

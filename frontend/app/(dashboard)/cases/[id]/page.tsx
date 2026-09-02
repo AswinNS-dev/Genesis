@@ -58,7 +58,23 @@ export default async function CaseDetailPage({
       <Card>
         <CardContent>
           <p className="text-sm text-muted">{c.description}</p>
-          <div className="mt-4 grid grid-cols-2 gap-4 text-xs sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-4">
+            <div>
+              <p className="text-muted">Category</p>
+              <p className="mt-0.5 font-medium text-foreground">{c.category ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted">Initiated via</p>
+              <p className="mt-0.5 font-medium text-foreground">{c.caseSource ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted">Incident date</p>
+              <p className="mt-0.5 font-medium text-foreground">{c.incidentDate ? new Date(c.incidentDate).toLocaleDateString() : "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted">Jurisdiction</p>
+              <p className="mt-0.5 font-medium text-foreground">{c.jurisdiction ?? "—"}</p>
+            </div>
             <div>
               <p className="text-muted">Assigned</p>
               <p className="mt-0.5 font-medium text-foreground">{c.assignedInvestigator ?? "—"}</p>

@@ -5,6 +5,10 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Lock, Mail, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  isSupabaseEnabled,
+  supabaseSignIn,
+} from "@/lib/supabase-client";
 
 export function LoginForm() {
   const router = useRouter();
@@ -25,12 +29,34 @@ export function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-      callbackUrl,
-    });
+    // When Supabase Auth is configured, verify the password with Supabase
+    // first, then map the identity to the local investigator record so the
+    // existing RBAC roles, lockout and audit stay intact.
+    let res;
+    if (isSupabaseEnabled()) {
+      try {
+        await supabaseSignIn(email, password);
+      } catch {
+        setLoading(false);
+        setError(
+          "Supabase could not verify these credentials. Please try again."
+        );
+        return;
+      }
+
+      res = await signIn("supabase", {
+        redirect: false,
+        email,
+        callbackUrl,
+      });
+    } else {
+      res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+        callbackUrl,
+      });
+    }
 
     setLoading(false);
 

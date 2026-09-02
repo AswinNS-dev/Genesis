@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
-import { Settings, Users, Cpu, ShieldCheck } from "lucide-react";
+import { Settings, Users, Cpu, ShieldCheck, Database } from "lucide-react";
 import { prisma } from "@backend/lib/prisma";
 import { registerProviders } from "@backend/ai/providers/register";
 import { listProviders } from "@backend/ai/providers";
+import {
+  isSupabaseConfigured,
+  isPostgres,
+  envConfig,
+} from "@backend/infrastructure/config/env";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +98,41 @@ export default async function SettingsPage() {
                 AI operations use a replaceable abstraction layer (lib/ai). In mock mode, extraction,
                 summarization and pattern detection run deterministically on fictional demo data —
                 no external API required. Swap AI_MODE=llm and implement the provider to integrate a real model.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader title="Supabase" description="Database, storage & auth status" />
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted">Configured</span>
+                <Badge variant={isSupabaseConfigured() ? "success" : "outline"}>
+                  {isSupabaseConfigured() ? "yes" : "no"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted">Database</span>
+                <Badge variant={isPostgres() ? "info" : "outline"}>
+                  {isPostgres() ? "Supabase Postgres" : "Local"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted">Storage driver</span>
+                <Badge variant={envConfig.storageDriver === "supabase" ? "info" : "outline"}>
+                  {envConfig.storageDriver}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted">Bucket</span>
+                <span className="text-muted">{envConfig.supabase.storageBucket}</span>
+              </div>
+              <p className="flex items-center gap-1.5 pt-1 text-xs text-muted">
+                <Database className="h-3.5 w-3.5" />
+                To go live: set SUPABASE_* keys + DATABASE_URL (Prisma Postgres) in{" "}
+                <code className="rounded bg-surface-raised px-1 py-0.5">.env</code> and{" "}
+                <code className="rounded bg-surface-raised px-1 py-0.5">frontend/.env</code>, then push
+                the schema and apply the RLS script.
               </p>
             </CardContent>
           </Card>

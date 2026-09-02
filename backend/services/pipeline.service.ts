@@ -175,6 +175,7 @@ export interface IngestInput {
   sourceType: SourceType;
   fileName?: string;
   caseId?: string;
+  analysisScope?: "COMBINED" | "DATASET_ONLY";
   createdById?: string;
   userName?: string;
 }
@@ -209,6 +210,7 @@ export class DataPipeline {
         status: "UPLOADED",
         createdById: input.createdById,
         caseId: input.caseId ?? undefined,
+        analysisScope: input.analysisScope ?? "COMBINED",
       },
     });
     await stage("DATASET_UPLOADED", `${dataset.name} received (${(input.content.length / 1024).toFixed(1)} KB)`);

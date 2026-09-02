@@ -15,6 +15,7 @@ export interface EnvConfig {
     storagePublic: boolean;
   };
   storageDriver: "local" | "supabase";
+  mlServiceUrl: string;
 }
 
 const read = (name: string): string | undefined => process.env[name]?.trim();
@@ -49,6 +50,7 @@ export const envConfig: EnvConfig = {
     storagePublic: (read("SUPABASE_STORAGE_PUBLIC") ?? "true") === "true",
   },
   storageDriver: resolveDriver(databaseUrl),
+  mlServiceUrl: read("ML_SERVICE_URL") ?? "http://localhost:8000",
 };
 
 export function isSupabaseConfigured(): boolean {

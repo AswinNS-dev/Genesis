@@ -52,9 +52,67 @@ export async function POST(req: Request) {
   }
 
   let saved = 0;
-  for (const c of candidates) {
+  
+  // Optional: Resolve entities via ML service if we have candidates
+  let resolvedCandidates = candidates.map(c => ({ ...c, suggestedEntityId: null, resolutionDecision: null, resolutionSignals: null, confidence: c.confidence }));
+  
+  try {
+    const { envConfig } = await import("@backend/infrastructure/config/env");
+    const { aiMode } = await import("@backend/lib/ai");
+    
+    if (aiMode() === "ml" && candidates.length > 0) {
+      const registry = await prisma.entity.findMany({ select: { id: true, type: true, name: true, aliases: true, value: true, metadata: true } });
+      const registryCandidates = registry.map(r => ({
+          id: r.id, type: r.type, name: r.name,
+          aliases: typeof r.aliases === "string" ? JSON.parse(r.aliases) : [],
+          phone: r.type === "PHONE" ? r.value : undefined,
+          vehicle: r.type === "VEHICLE" ? r.value : undefined,
+          location: r.type === "LOCATION" ? r.value : undefined
+      }));
+      
+      const extracted = candidates.map(c => ({
+          type: c.type, name: c.value,
+          phone: c.type === "PHONE" ? c.value : undefined,
+          vehicle: c.type === "VEHICLE" ? c.value : undefined,
+          location: c.type === "LOCATION" ? c.value : undefined
+      }));
+      
+      const res = await fetch(`${envConfig.mlServiceUrl}/entity-resolution/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extracted_entities: extracted, registry_candidates: registryCandidates })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        resolvedCandidates = candidates.map((c, i) => {
+            const mlRes = data.results[i];
+            return {
+                ...c,
+                suggestedEntityId: mlRes?.matched_entity_id,
+                resolutionDecision: mlRes?.decision,
+                resolutionSignals: mlRes?.signals ? JSON.stringify(mlRes.signals) : null,
+                confidence: mlRes?.confidence ?? c.confidence
+            };
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Entity resolution failed:", err);
+  }
+
+  for (const c of resolvedCandidates) {
     await prisma.extractionCandidate.create({
-      data: { documentId: result.document.id, type: c.type, value: c.value, context: c.context },
+      data: { 
+        documentId: result.document.id, 
+        type: c.type, 
+        value: c.value, 
+        context: c.context,
+        confidence: c.confidence,
+        suggestedEntityId: c.suggestedEntityId,
+        resolutionDecision: c.resolutionDecision,
+        resolutionSignals: c.resolutionSignals
+      },
     });
     saved++;
   }

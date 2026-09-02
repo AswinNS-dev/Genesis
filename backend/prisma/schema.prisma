@@ -278,8 +278,12 @@ model ExtractionCandidate {
   value       String
   context     String?
   status      String   @default("PENDING") // PENDING | CONFIRMED | EDITED | REJECTED
-  editedValue String?
-  createdAt   DateTime @default(now())
+  editedValue          String?
+  confidence           Float?
+  suggestedEntityId    String?
+  resolutionDecision   String?
+  resolutionSignals    String? // JSON
+  createdAt            DateTime @default(now())
 }
 
 model Pattern {

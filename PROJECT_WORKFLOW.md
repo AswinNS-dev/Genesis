@@ -17,6 +17,7 @@
 13. [Evidence Management Workflow](#13-evidence-management-workflow)
 14. [Network Graph & Pathfinding](#14-network-graph--pathfinding)
 15. [Seed Data Summary](#15-seed-data-summary)
+16. [Supabase Integration](#16-supabase-integration--storage--auth--database)
 
 ---
 
@@ -40,11 +41,19 @@ CrimeIntel is an AI-assisted criminal investigation platform prototype. It provi
 | State Management | Zustand (sidebar state), React Server Components |
 | UI Components | Radix UI (Dialog, Dropdown, Tooltip), Lucide icons |
 | Forms/Validation | Zod |
-| Database | SQLite via Prisma ORM |
-| Authentication | NextAuth.js (Credentials provider, JWT sessions, 8hr expiry) |
-| Security | bcryptjs, account lockout (5 attempts / 15 min), brute-force alerts |
+| Database | Prisma ORM → **Supabase PostgreSQL** (provider `postgresql`; switchable to SQLite for local dev) |
+| File Storage | Pluggable layer (`backend/infrastructure/storage/`) → **Supabase Storage** bucket or local filesystem |
+| Authentication | NextAuth.js (JWT sessions, 8hr expiry) with **credentials** + **Supabase Auth** providers |
+| Security | bcryptjs / Supabase Auth, account lockout (5 attempts / 15 min), brute-force alerts |
 | Integrity | Custom SHA-256 chained ledger (blockchain.ts) |
 | AI | Deterministic mock extraction layer (rule-based, no LLM) |
+
+**Supabase integration** (`backend/infrastructure/`):
+- `supabase/client.ts` — server-only admin (service role) + anon client factories
+- `storage/supabase.ts` — `SupabaseStorageProvider` with `supabase://<bucket>/<path>` locations
+- `storage/index.ts` — driver selection (`local` | `supabase`), mixed-backend reads via `storageFor()`
+- `database/setup-supabase.sql` — RLS + bucket provisioning script
+- Client sign-in uses only the public anon key (see `frontend/lib/supabase-client.ts` + `/api/supabase/health`)
 
 ---
 
@@ -61,19 +70,26 @@ crimeintel/
 │   │   ├── rbac.ts                # Role hierarchy, path access control
 │   │   ├── ai.ts                  # AI abstraction (mock entity extraction, leads, patterns)
 │   │   ├── blockchain.ts          # SHA-256 hashing, block hashing, chain verification
-│   │   └── graph-data.ts          # Graph builder, relationship analysis, BFS pathfinding
+│   │   └── graph-data.ts          # Graph builder, egocentric + dataset graphs, BFS pathfinding
+│   ├── infrastructure/
+│   │   ├── config/env.ts          # Typed env access (DB URL, storage driver, Supabase keys)
+│   │   ├── supabase/client.ts     # Admin (service role) + anon Supabase clients (server-only)
+│   │   ├── storage/               # Pluggable file storage: types, local, supabase, index
+│   │   └── database/              # migrate-to-supabase.md, setup-supabase.sql (RLS + bucket)
+│   ├── services/                  # pipeline, evidence, dataset, case, etc.
 │   └── prisma/
-│       ├── schema.prisma          # 17 data models
-│       ├── seed.ts                # Demo dataset generator (486 lines)
-│       └── dev.db                 # SQLite database file
+│       ├── schema.prisma          # 20 data models (Supabase Postgres provider)
+│       ├── seed.ts                # Demo dataset generator
+│       └── dev.db                 # SQLite database file (local dev only)
 ├── frontend/
 │   ├── middleware.ts              # Auth + RBAC route protection
 │   ├── next.config.mjs            # Next.js config
 │   ├── tailwind.config.ts         # Theme colors, fonts, animations
 │   ├── postcss.config.mjs         # PostCSS + Tailwind
-│   ├── globals.css                # Global styles, CSS variables
 │   ├── lib/
 │   │   ├── utils.ts               # cn() class-name utility
+│   │   ├── api-helpers.ts         # Consistent HTTP response helpers
+│   │   ├── supabase-client.ts     # Browser Supabase Auth sign-in (anon key, lazy import)
 │   │   └── store/sidebar.ts       # Zustand sidebar state
 │   ├── config/navigation.ts       # Sidebar nav structure
 │   ├── types/next-auth.d.ts       # NextAuth type augmentation
@@ -81,49 +97,54 @@ crimeintel/
 │   │   ├── ui/                    # Button, Card, Badge, Alert, Dialog, State, StatCard
 │   │   ├── layout/                # Sidebar, Topbar, UserMenu
 │   │   ├── dashboard/             # PageHeader, ModuleStub
+│   │   ├── data-workspace/        # FileUploadPanel, IngestPanel, DatasetList, AnalysisResultView
 │   │   ├── entities/              # Entity type helpers (colors, labels, icons)
 │   │   └── network/               # Interactive SVG NetworkGraph
 │   └── app/
 │       ├── layout.tsx             # Root layout (fonts, metadata)
 │       ├── page.tsx               # Redirects to /dashboard
 │       ├── globals.css
-│       ├── (auth)/login/          # Login page + LoginForm client component
+│       ├── (auth)/login/          # Login page + LoginForm client component (Supabase-aware)
 │       ├── (dashboard)/           # All authenticated pages
 │       │   ├── layout.tsx         # Dashboard layout (sidebar + topbar)
 │       │   ├── dashboard/         # KPI overview
-│       │   ├── cases/             # Case list, detail, notes, new-case dialog
+│       │   ├── cases/             # Case list, detail, notes, enriched new-case dialog
+│       │   ├── data-workspace/    # Dataset ingestion (inline upload, mapping, analysis)
+│       │   ├── analysis/          # Knowledge graph: global + person + cross-dataset
 │       │   ├── documents/         # Upload, AI extraction review
 │       │   ├── entities/          # Entity registry, match actions
 │       │   ├── network/           # Interactive graph, pathfinding, analysis
-│       │   ├── timeline/          # Chronological event view
-│       │   ├── locations/         # Location intelligence
-│       │   ├── communications/    # CDR-style call records
-│       │   ├── transactions/      # Financial flow analysis
-│       │   ├── ai-insights/       # Patterns, summary, leads
-│       │   ├── evidence/          # Hash verification, tamper simulation
-│       │   ├── blockchain/        # Integrity ledger viewer
-│       │   ├── reports/           # Report generation + print
-│       │   ├── security/          # Alerts, failed logins (admin)
-│       │   ├── audit-logs/        # Action audit trail (admin)
-│       │   └── settings/          # User/role config (admin)
+│       │   └── ...                # timeline, locations, communications, transactions,
+│       │                          # ai-insights, evidence, blockchain, reports, security,
+│       │                          # audit-logs, settings
 │       └── api/
-│           ├── auth/[...nextauth]/ # NextAuth handler
+│           ├── auth/[...nextauth]/ # NextAuth handler (Credentials + supabase providers)
 │           ├── upload/             # Document upload → hash → ledger → extraction
 │           ├── cases/              # Create cases
+│           ├── cases/[id]/         # GET case + persons (for graph selectors)
 │           ├── cases/[id]/notes/   # Add case notes
 │           ├── cases/[id]/analyze/ # AI analysis for a case
+│           ├── datasets/           # List datasets (analysisScope)
+│           ├── datasets/ingest/    # Ingest structured datasets (scope-aware)
+│           ├── datasets/[id]/analyze/ # Combined vs dataset-only analysis
+│           ├── datasets/[id]/graph/  # Dataset → person knowledge graph
+│           ├── datasets/[id]/match/  # Dataset matching
+│           ├── dataset-records/     # List dataset records
+│           ├── dataset-records/[id]/review/ # Review/merge a dataset record
 │           ├── intel-data/         # Scoped data (documents, network, timeline, etc.)
 │           ├── intel-data/analyze/ # Relationship analysis
 │           ├── intel-data/path/    # Multi-hop pathfinding
+│           ├── intel-data/egocentric/ # Person-focused 2/3-hop graph
 │           ├── intel-data/entity/[id]/links/ # Entity connections
 │           ├── evidence/[id]/verify/  # Hash integrity check
 │           ├── evidence/[id]/tamper/  # Tamper simulation
 │           ├── blockchain/verify-chain/ # Full chain verification
 │           ├── matches/[id]/[action]/  # Entity match confirm/reject
-│           ├── extraction/[id]/confirm/ # Confirm AI extraction
-│           ├── extraction/[id]/reject/  # Reject AI extraction
-│           ├── extraction/[id]/update/  # Edit AI extraction
-│           └── reports/             # Generate investigation report
+│           ├── extraction/[id]/...  # confirm / reject / update
+│           ├── reports/             # Generate investigation report
+│           ├── search/              # Global search
+│           ├── alerts/, security/alerts/[id]/resolve/, analysis/, ai/providers/
+│           └── supabase/health/     # Supabase readiness + connectivity probe
 ```
 
 ---
@@ -135,20 +156,28 @@ crimeintel/
 ```
 User visits /login
     ↓
-LoginForm (client component) calls signIn("credentials", {email, password})
+LoginForm (client component):
+    ┌─ If Supabase client keys (NEXT_PUBLIC_SUPABASE_*) are set ────────────────┐
+    │ 1. supabaseSignIn(email, password) → Supabase Auth signInWithPassword      │
+    │    (uses the public anon key only; browser-safe, lazy-imported)            │
+    │ 2. On success → signIn("supabase", {email})                                 │
+    │ NextAuth supabase provider (auth.ts) maps the verified identity to the     │
+    │ local investigator record by email (RBAC, lockout, audit preserved)         │
+    └────────────────────────────────────────────────────────────────────────────┘
+    └─ Otherwise → signIn("credentials", {email, password}) (built-in login)
     ↓
-NextAuth authorize() in auth.ts:
+NextAuth authorize() in auth.ts (shared checks for both providers):
     1. Validates credentials present
     2. Extracts IP (x-forwarded-for) + user-agent from request
     3. Looks up user by email (lowercased) via prisma.user.findUnique()
     4. Checks account lockout (lockedUntil > now) → records ACCOUNT_LOCKED attempt
     5. Checks user not found → records NO_USER attempt
     6. Checks status !== "ACTIVE" → records ACCOUNT_DISABLED attempt
-    7. bcrypt.compare(password, user.passwordHash)
+    7. (credentials only) bcrypt.compare(password, user.passwordHash)
        - Invalid → increments failedLogins; if >=5 → locks 15 min + BRUTE_FORCE SecurityAlert
        - Records login attempt with reason → returns null
-    8. On success → resets failedLogins, clears lock, sets lastLoginAt
-       - Records successful LoginAttempt + AuditLog
+    8. On success → resetAuthSuccess() resets failedLogins, clears lock, sets lastLoginAt
+       - Records successful LoginAttempt + AuditLog (+ possible UNUSUAL_ACCESS alert)
        - Returns {id, email, name, role}
     ↓
 jwt() callback: embeds user.id + user.role into JWT token
@@ -176,7 +205,7 @@ API Route processes upload:
     2. Reads file from FormData, validates presence
     3. Sanitizes filename, ensures unique with Date.now()
     4. Hashes file content with sha256Buffer() → SHA-256 hash
-    5. Saves file to public/uploads/{sanitized_name}
+    5. Saves file via the storage provider (local `public/uploads/...` or `supabase://<bucket>/...`)
     6. Creates EvidenceDocument record in DB:
        - name, description, filePath, contentType, sizeBytes, sha256
        - status: ACTIVE, uploadedById from session
@@ -257,7 +286,7 @@ Client sends POST /api/evidence/[id]/verify
     ↓
 API Route verification process:
     1. Fetches EvidenceDocument + its BlockchainRecords
-    2. Reads actual file from disk (fs.readFileSync)
+    2. Reads actual file via `storageFor(doc.filePath).read(location)` (local fs or Supabase Storage)
     3. Recomputes SHA-256 hash of file content
     4. Compares against stored sha256 in DB
     5. Fetches all blockchain records for this evidence
@@ -404,6 +433,60 @@ Frontend renders ReportView with ReportSection components:
 User can Print/PDF via window.print()
 ```
 
+### 4.10 Data Workspace — Dataset Ingestion & Analysis Flow
+
+```
+User opens /data-workspace
+    ↓
+Option A — Inline file upload (structured datasets):
+    POST /api/datasets/ingest with {file, sourceType, caseId, analysisScope}
+    - Validates scope: COMBINED | DATASET_ONLY (DATASET_ONLY requires caseId)
+    - Saves file (local or supabase:// storage location)
+    - Creates Dataset (status UPLOADED) + records the scope + raw rows
+    - Returns SHA-256 + candidate count + audit detail
+    ↓
+Option B — Paste structured content into IngestPanel
+    (CSV / JSON / pipe rows) → same ingest pipeline
+    ↓
+Dataset lifecycle status: UPLOADED → MAPPED → NORMALIZED → MATCHING → READY | ERROR
+    ↓
+Dataset list shows scope badge (Combine vs Only this dataset):
+    - "Analyze dataset" button → POST /api/datasets/[id]/analyze
+    - COMBINED  → analyzes the linked case's full context (all entities/relationships)
+    - DATASET_ONLY → restricts analysis to this dataset's entity/relationships
+    - Reuses pattern/anomaly/summary/lead providers; dedupes patterns + alerts
+    - Logs DATASET_ANALYZED audit
+    - Renders collapsible leads + patterns result (AnalysisResultView)
+    ↓
+Dataset records (DatasetRecord) can be matched/merged into the entity registry:
+    POST /api/datasets/[id]/match and POST /api/dataset-records/[id]/review
+    - matchStatus: UNMATCHED | CANDIDATE | MERGED | SKIPPED
+    - potential matches are linked via matchCandidate; never auto-merged
+```
+
+### 4.11 Knowledge Graph — Global, Person & Cross-Dataset
+
+```
+Global graph (Analysis page Network tab):
+    GET /api/intel-data?scope=network → nodes/links with color/weight
+    Rendered by NetworkGraph (same layout as /network)
+
+Person-focused (egocentric) graph:
+    GET /api/cases/[id] → list case + its PERSONS (fills selector)
+    GET /api/intel-data/egocentric?entity=<id>&hops=<1-3>
+    → BFS from the person (2 hops default), source node drawn larger
+    PersonGraphCard: pick case → pick person → generator, hops selector
+
+Cross-dataset relationship graph:
+    GET /api/datasets/[id]/graph?person=<id>&expand=<bool>&hops=<1-3>
+    → derives persons from DatasetRecord.normalized name fields
+    → tags nodes isNew (not in entity registry), NEW nodes get thicker rings
+    → marks cross-links (new ↔ existing) amber (#f59e0b)
+    CrossDatasetGraphCard: "Alone / With existing data" toggle + hops selector
+    + legend + cross-link count badge
+    (this is the "alone vs with existing data" option)
+```
+
 ---
 
 ## 5. Authentication & Session Management
@@ -415,27 +498,44 @@ User can Print/PDF via window.print()
 | Strategy | JWT |
 | Max Age | 8 hours (28800 seconds) |
 | Sign-in Page | /login |
-| Provider | Credentials (email + password) |
+| Providers | Credentials (email + password), Supabase Auth (`supabase` provider, optional) |
 
 ### Login Logic
 
 ```
 1. Validate credentials present
-2. Extract IP from x-forwarded-for header
-3. Extract User-Agent from headers
-4. Lookup user: prisma.user.findUnique({where: {email: email.toLowerCase()}})
-5. Check lockout: user.lockedUntil > new Date() → record ACCOUNT_LOCKED → return null
-6. Check existence: user not found → record NO_USER → return null
-7. Check status: user.status !== "ACTIVE" → record ACCOUNT_DISABLED → return null
-8. Password check: bcrypt.compare(password, user.passwordHash)
+2. Extract IP from x-forwarded-for header + User-Agent
+3. resolveLocalUserForAuth(email, ip, userAgent):
+   - Lookup user: prisma.user.findUnique({where: {email: email.toLowerCase()}})
+   - Check lockout: user.lockedUntil > new Date() → record ACCOUNT_LOCKED → return null
+   - Check existence: user not found → record NO_USER → return null
+   - Check status: user.status !== "ACTIVE" → record ACCOUNT_DISABLED → return null
+4. (credentials only) Password check: bcrypt.compare(password, user.passwordHash)
    - Fail → increment failedLogins
      - If failedLogins >= 5 → lock account 15 min + create SecurityAlert (BRUTE_FORCE)
    - Record login attempt → return null
-9. Success → reset failedLogins, clear lockedUntil, set lastLoginAt
-   - Create LoginAttempt (success: true, reason: "SUCCESS")
-   - Create AuditLog (action: "LOGIN")
-   - Return {id, email, name, role}
+5. recordAuthSuccess(user, ip, userAgent):
+   - Reset failedLogins, clear lockedUntil, set lastLoginAt
+   - Create LoginAttempt (success: true)
+   - Optionally create UNUSUAL_ACCESS SecurityAlert for a new IP
+   - Create AuditLog (action: "LOGIN_SUCCESS")
+6. Return {id, email, name, role}
 ```
+
+### Supabase Auth Sign-in
+
+When `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set, the login
+form first verifies the password against **Supabase Auth** (`signInWithPassword`,
+public anon key only), then maps the verified identity to the matching local
+investigator record via the `supabase` NextAuth provider. This keeps password
+verification with Supabase while preserving the app's RBAC roles, account
+lockout, login-attempt records, and audit log.
+
+- Client helper: `frontend/lib/supabase-client.ts` (`isSupabaseEnabled()`, `supabaseSignIn()`)
+- Server mapping: the `supabase` CredentialsProvider in `backend/lib/auth.ts`
+  (no bcrypt — Supabase already verified the password)
+- No Supabase client keys are set → login falls back to built-in credentials
+- The service-role key is never used for sign-in or shipped to the browser
 
 ### Session Data
 
@@ -462,6 +562,8 @@ VIEWER (1) < ANALYST (2) < INVESTIGATOR (3) < ADMIN (4)
 | /dashboard | Read | Read | Read | Read |
 | /cases | Read | Read | **Read + Write** | **Read + Write** |
 | /documents | Read | Read | **Read + Write** | **Read + Write** |
+| /data-workspace | Read | Read | **Read + Write** | **Read + Write** |
+| /analysis | Read | Read | Read | Read |
 | /entities | Read | Read | Read | Read |
 | /network | Read | Read | Read | Read |
 | /timeline | Read | Read | Read | Read |
@@ -484,6 +586,10 @@ VIEWER (1) < ANALYST (2) < INVESTIGATOR (3) < ADMIN (4)
 | POST /api/cases/[id]/notes | INVESTIGATOR |
 | POST /api/cases/[id]/analyze | INVESTIGATOR |
 | POST /api/upload | INVESTIGATOR |
+| POST /api/datasets/ingest | INVESTIGATOR |
+| POST /api/datasets/[id]/analyze | INVESTIGATOR |
+| POST /api/datasets/[id]/match | INVESTIGATOR |
+| POST /api/dataset-records/[id]/review | INVESTIGATOR |
 | POST /api/extraction/[id]/confirm | INVESTIGATOR |
 | POST /api/extraction/[id]/reject | INVESTIGATOR |
 | POST /api/extraction/[id]/update | INVESTIGATOR |
@@ -498,7 +604,7 @@ VIEWER (1) < ANALYST (2) < INVESTIGATOR (3) < ADMIN (4)
 
 ## 7. Database Schema & Data Model
 
-### 17 Prisma Models
+### 20 Prisma Models
 
 #### Auth & Security
 
@@ -513,7 +619,7 @@ VIEWER (1) < ANALYST (2) < INVESTIGATOR (3) < ADMIN (4)
 
 | Model | Purpose | Key Fields |
 |-------|---------|------------|
-| **InvestigationCase** | Core case entity | id, caseId (unique, e.g. CR-2026-1042), title, description, status (OPEN/CLOSED/ARCHIVED), classification (OPEN/RESTRICTED/SECRET), assignedInvestigator, createdById |
+| **InvestigationCase** | Core case entity | id, caseId (unique, e.g. CR-2026-1042), title, description, status (OPEN/CLOSED/ARCHIVED), classification (OPEN/RESTRICTED/SECRET), category, caseSource, incidentDate, jurisdiction, assignedInvestigator, createdById |
 | **CaseNote** | Case notes | id, body, author, authorId, caseId |
 | **CaseActivity** | Activity log | id, action, detail, actor, caseId |
 
@@ -534,6 +640,14 @@ VIEWER (1) < ANALYST (2) < INVESTIGATOR (3) < ADMIN (4)
 | **EntityMatch** | Duplicate detection | id, entityAId, entityBId, confidence, reasons (JSON), status (PENDING/CONFIRMED/REJECTED) |
 | **Relationship** | Graph edges | id, type (COMMUNICATION/TRANSACTION/LOCATION/CASE/TRANSPORT/FINANCIAL), label, sourceId, targetId, strength, count, records (JSON), caseId |
 | **TimelineEvent** | Timeline entries | id, type (COMMUNICATION/VISIT/LOCATION/FINANCIAL/VEHICLE/GENERAL), summary, detail, eventAt, entityId, caseId |
+
+#### Dataset Ingestion
+
+| Model | Purpose | Key Fields |
+|-------|---------|------------|
+| **Dataset** | Structured dataset upload | id, name, sourceType (CSV/XLSX/JSON/PDF/DOCX/TXT), fileName, storageLocation (`uploads/…` or `supabase://<bucket>/…`), status (UPLOADED/MAPPED/NORMALIZED/MATCHING/READY/ERROR), recordCount, analysisScope (COMBINED/DATASET_ONLY), mapping (JSON), normalizationRules (JSON), error, caseId, createdById |
+| **DatasetRecord** | Normalized dataset row | id, datasetId, rowIndex, raw (JSON), normalized (JSON), matchStatus (UNMATCHED/CANDIDATE/MERGED/SKIPPED), matchConfidence, matchReasons (JSON), reviewedAt, matchCandidateId, mergedEntityId |
+| **DatasetEntity** | Dataset→entity link | id, role (SOURCE/CREATED/MERGED), datasetId, recordId, entityId (@@unique combo) |
 
 #### AI Outputs
 
@@ -567,7 +681,16 @@ Entity ──┬── has ──→ Relationship[] (as source)
          ├── has ──→ Relationship[] (as target)
          ├── has ──→ EntityMatch[] (as matchA)
          ├── has ──→ EntityMatch[] (as matchB)
-         └── has ──→ TimelineEvent[]
+         ├── has ──→ TimelineEvent[]
+         └── linked ←── DatasetEntity[] / DatasetRecord[] (matchCandidate/merged)
+
+Dataset ──┬── has ──→ DatasetRecord[]
+          ├── has ──→ DatasetEntity[]
+          └── belongs ──→ InvestigationCase (optional)
+
+DatasetRecord ──┬── has ──→ DatasetEntity[]
+                ├── matchCandidate ──→ Entity
+                └── mergedEntity ──→ Entity
 ```
 
 ---
@@ -586,14 +709,15 @@ Entity ──┬── has ──→ Relationship[] (as source)
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `authOptions` | `NextAuthOptions` | Full NextAuth config: JWT strategy (8hr), Credentials provider, JWT/session callbacks |
+| `authOptions` | `NextAuthOptions` | Full NextAuth config: JWT strategy (8hr), Credentials + supabase providers, JWT/session callbacks |
 | `getSession()` | `Promise<Session \| null>` | Server-side session retrieval wrapper |
 
-**Internal `authorize()` flow:**
+**Internal `authorize()` flow (shared by both providers):**
 1. Validate inputs → extract IP + User-Agent → lookup user by email
-2. Check lockout → check existence → check status → bcrypt compare
-3. On failure: increment failedLogins, lock after 5 failures (15 min), create SecurityAlert
-4. On success: reset counters, record LoginAttempt + AuditLog, return user object
+2. `resolveLocalUserForAuth()` → lockout → existence → status checks
+3. Credentials provider → bcrypt compare; supabase provider → trusts Supabase Auth already verified
+4. On failure: increment failedLogins, lock after 5 failures (15 min), create SecurityAlert
+5. On success: `recordAuthSuccess()` → reset counters, record LoginAttempt + AuditLog, return user object
 
 **JWT callback:** Embeds `user.id` and `user.role` into token on first sign-in.
 **Session callback:** Copies `token.id` and `token.role` onto `session.user`.
@@ -664,6 +788,8 @@ Entity ──┬── has ──→ Relationship[] (as source)
 | `GraphNode` | Interface | `{id, label, type, color, radius?}` |
 | `GraphLink` | Interface | `{source, target, type, color, weight, label?}` |
 | `buildGraph()` | Function | Fetches all entities + relationships → maps to nodes + links for visualization |
+| `buildEgocentricGraph(sourceId, maxHops?)` | Function | BFS from one person (2 hops default), larger radius for the source node |
+| `buildDatasetGraph(datasetId, {personId, expand, maxHops})` | Function | Derives dataset persons from `DatasetRecord.normalized` `name` fields; resolves new vs existing (`isNew`); marks cross-links amber `#f59e0b` |
 | `RelationshipAnalysis` | Interface | `{sourceName, targetName, communication, sharedLocations, financial, commonCases, directRelationships, strength}` |
 | `analyzeRelationship(sourceId, targetId)` | Function | Deep analysis: groups by type, aggregates counts, computes weighted strength score (capped at 99) |
 | `PathStep` | Interface | `{from, to, type, label}` |
@@ -678,15 +804,29 @@ Entity ──┬── has ──→ Relationship[] (as source)
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/auth/[...nextauth]` | GET/POST | Public | NextAuth handler (login, session, CSRF) |
+| `/api/auth/[...nextauth]` | GET/POST | Public | NextAuth handler (login, session, CSRF; Credentials + supabase providers) |
 
 ### Case Management
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/cases` | POST | INVESTIGATOR+ | Create new case (auto-generates CR-2026-###) |
+| `/api/cases` | POST | INVESTIGATOR+ | Create new case (auto-generates CR-2026-###, enriched fields) |
+| `/api/cases` | GET | Any | List cases |
+| `/api/cases/[id]` | GET | Any | Get single case + its PERSONS (graph selector data) |
 | `/api/cases/[id]/notes` | POST | INVESTIGATOR+ | Add note to case |
 | `/api/cases/[id]/analyze` | POST | INVESTIGATOR+ | Run AI analysis (summary + leads + patterns) |
+
+### Dataset Ingestion
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/datasets` | GET | Any | List datasets (includes `analysisScope`) |
+| `/api/datasets/ingest` | POST | INVESTIGATOR+ | Ingest structured dataset (file or pasted content), scope-aware |
+| `/api/datasets/[id]/analyze` | POST | INVESTIGATOR+ | Analyze dataset: COMBINED (full case context) or DATASET_ONLY |
+| `/api/datasets/[id]/graph` | GET | Any | Dataset knowledge graph for a person (new/existing, cross-links) |
+| `/api/datasets/[id]/match` | POST | INVESTIGATOR+ | Run entity matching for a dataset |
+| `/api/dataset-records` | GET | Any | List dataset records |
+| `/api/dataset-records/[id]/review` | POST | INVESTIGATOR+ | Review / merge a dataset record against an entity |
 
 ### Document & Evidence
 
@@ -715,10 +855,32 @@ Entity ──┬── has ──→ Relationship[] (as source)
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/intel-data` | GET | Any | Scoped data: cases, evidence, entities, patterns, links, blocks, events, locations, comms, transactions |
+| `/api/intel-data` | GET | Any | Scoped data: cases, evidence, entities, patterns, links, blocks, events, locations, comms, transactions, network (nodes/links with color+weight) |
 | `/api/intel-data/analyze` | GET | Any | Relationship analysis between two entities |
 | `/api/intel-data/path` | GET | Any | Multi-hop BFS path search |
+| `/api/intel-data/egocentric` | GET | Any | Person-focused (egocentric) graph, hops 1–3 |
 | `/api/intel-data/entity/[id]/links` | GET | Any | All relationships for an entity |
+
+### Search & AI
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/search` | GET | Any | Global search across entities/cases/documents |
+| `/api/analysis/detect` | POST | INVESTIGATOR+ | Run explicit pattern/anomaly detection |
+| `/api/ai/providers` | GET | Any | List available AI providers + active provider |
+
+### Alerts & Security
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/alerts` | GET/POST | Any/ADMIN | List/create alerts |
+| `/api/security/alerts/[id]/resolve` | POST | ADMIN | Resolve a security alert |
+
+### Supabase
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/supabase/health` | GET | Any authenticated | Supabase readiness: configured, postgres, storageDriver, bucket, live connectivity probe |
 
 ### Blockchain
 
@@ -739,7 +901,8 @@ Entity ──┬── has ──→ Relationship[] (as source)
 ### 10.1 Login (`/login`)
 
 - Email + password form
-- Calls NextAuth `signIn("credentials", ...)`
+- If Supabase is configured → verifies via Supabase Auth, then maps to NextAuth session
+- Otherwise → calls NextAuth `signIn("credentials", ...)`
 - Redirects to `/dashboard` on success
 - Shows demo account credentials reference
 - Handles callbackUrl for redirect after login
@@ -775,12 +938,17 @@ Entity ──┬── has ──→ Relationship[] (as source)
 **New Case Dialog:**
 - Title input
 - Description textarea
-- Classification dropdown
+- Category dropdown (Financial Fraud, Narcotics, Human Trafficking, Cyber, …)
+- Initiated-via / case source dropdown
+- Incident date
+- Jurisdiction
+- Status dropdown (OPEN/CLOSED/ARCHIVED)
+- Classification dropdown (OPEN/RESTRICTED/SECRET)
 - Assigned investigator
 - Posts to `POST /api/cases`
 
 **Case Detail (`/cases/[id]`):**
-- Case metadata (ID, status, classification, dates)
+- Case metadata (ID, status, classification, dates, category, source, jurisdiction)
 - Entity list with type-colored badges
 - Document list with verification status
 - Case Notes panel (view + add)
@@ -806,6 +974,36 @@ Entity ──┬── has ──→ Relationship[] (as source)
 - SHA-256 hash display (truncated)
 - Verification status badge
 - Last verified timestamp
+
+### 10.4b Data Workspace (`/data-workspace`)
+
+**Inline File Upload Panel (`FileUploadPanel`):**
+- Drag-and-drop + browse for structured files (PDF / TXT)
+- Case selector
+- POSTs to `/api/datasets/ingest` (no redirect away from the page)
+- Shows SHA-256 + candidate count after upload
+- Header action links to /documents ("Documents library")
+
+**Dataset Ingestion Panel (`IngestPanel`):**
+- Paste structured content (CSV / pipe rows) or upload
+- Analysis scope selector: **Combine with existing data** (COMBINED) vs **Only this dataset** (DATASET_ONLY)
+- Validation note: DATASET_ONLY requires a case
+
+**Dataset List (`DatasetList`):**
+- Scope badge + status
+- **Analyze dataset** button → collapsible leads + patterns result (`AnalysisResultView`)
+- Explicit reassurance: potential matches are never auto-merged
+
+### 10.4c Analysis (`/analysis`) — Knowledge Graph
+
+**Network tab:**
+- **Global graph**: `NetworkGraph` mapped from `scope=network` nodes/links (color + weight)
+- **Person-focus graph** (`PersonGraphCard`): pick case → pick person → generate (hops 1/2/3)
+  - Uses `GET /api/cases/[id]` for persons + `GET /api/intel-data/egocentric`
+- **Cross-dataset graph** (`CrossDatasetGraphCard`): pick dataset → pick person →
+  **Alone / With existing data** toggle (hops 1/2/3)
+  - NEW nodes get thicker rings (`selectedIds`), cross-links amber, legend + cross-link count
+  - Uses `GET /api/datasets/[id]/graph`
 
 ### 10.5 Entities (`/entities`)
 
@@ -975,6 +1173,7 @@ Entity ──┬── has ──→ Relationship[] (as source)
 - User listing with roles and status
 - AI configuration display (mock/llm mode)
 - Role permissions reference table
+- **Supabase status card**: configured / database (Supabase Postgres vs local) / storage driver / bucket
 
 ---
 
@@ -1089,7 +1288,7 @@ action: undefined
 
 ```
 1. UPLOAD:
-   - File → SHA-256 hash → save to disk → create EvidenceDocument
+   - File → SHA-256 hash → save via storage provider → create EvidenceDocument
    - Create BlockchainRecord (EVIDENCE_HASH)
    - Run AI entity extraction → create ExtractionCandidates
    ↓
@@ -1098,7 +1297,7 @@ action: undefined
    - Confirmed candidates become Entity records
    ↓
 3. VERIFY:
-   - Recompute file hash from disk
+   - Recompute file hash from storage (local or Supabase)
    - Compare against stored sha256
    - Verify blockchain chain integrity
    - Result: MATCH (→ VERIFIED) or MISMATCH (→ COMPROMISED + SecurityAlert)
@@ -1193,6 +1392,75 @@ strength = (communicationCount × 4)
 | Login Attempts | 2 | 1 success, 1 failure |
 | Security Alerts | 1 | Prototype initialization |
 | Audit Logs | 1 | Seed completion record |
+
+---
+
+## 16. Supabase Integration (Storage + Auth + Database)
+
+Supabase provides the hosted **PostgreSQL database**, **Storage** and **Auth**.
+Prisma remains the ORM for all database access; the storage and auth layers wrap
+Supabase behind the existing infrastructure abstractions. The app is plug-and-play:
+set the keys, push the schema, and it runs entirely on Supabase.
+
+### Infrastructure files (`backend/infrastructure/`)
+
+| File | Purpose |
+|------|---------|
+| `config/env.ts` | Typed env access; `isSupabaseConfigured()`, `isPostgres()`, driver inference |
+| `supabase/client.ts` | `getSupabaseAdmin()` (service role, server-only) + `getSupabaseAnon()` |
+| `storage/supabase.ts` | `SupabaseStorageProvider` (save/read/getPublicUrl/delete), auto-creates bucket, `supabase://` locations |
+| `storage/index.ts` | `getStorageProvider()` / `storageFor(location)` — local ↔ supabase routing |
+| `database/setup-supabase.sql` | Enables RLS on all public tables + creates `crimeintel-evidence` bucket + read policy |
+| `database/migrate-to-supabase.md` | Step-by-step migration + rollback guide |
+
+### Database
+
+- `backend/prisma/schema.prisma` datasource `provider = "postgresql"` (reads `env("DATABASE_URL")`).
+- Point `DATABASE_URL` at the Supabase Postgres connection string (Prisma format, port 5432 pooler).
+- Schema is validated: `npx prisma validate` passes once `DATABASE_URL` is the Supabase connection string.
+- To revert to local dev: switch `provider` back to `"sqlite"` and set `DATABASE_URL="file:./dev.db"`.
+
+### Storage
+
+- Evidence and dataset files persist via `storageFor(location)`; locations are stored in the DB.
+- Local: `uploads/<caseId>/file.pdf`. Supabase: `supabase://<bucket>/<caseId>/file.pdf`.
+- Mixed-backend reads are supported during migration.
+- `SUPABASE_STORAGE_PUBLIC="true"` → public URLs; otherwise signed-read via service role.
+
+### Auth
+
+- Browser sign-in uses the **public anon key** only (`frontend/lib/supabase-client.ts`, `NEXT_PUBLIC_*` vars).
+- The `supabase` NextAuth provider maps the verified identity to the local DB user → RBAC + lockout + audit preserved.
+- Falls back to built-in credentials login when no client keys are set.
+
+### Readiness / health
+
+- `GET /api/supabase/health` → `{configured, postgres, storageDriver, bucket, live?, error?}`.
+  When configured + supabase driver, it performs a write/read/delete connectivity probe.
+- Settings page shows a live Supabase status card.
+
+### Environment variables
+
+Root `.env` / `frontend/.env`:
+```
+DATABASE_URL            # postgresql://... (Supabase) — or file:./dev.db for local
+SUPABASE_URL
+SUPABASE_ANON_KEY       # public
+SUPABASE_SERVICE_ROLE_KEY  # server-only, never exposed
+SUPABASE_STORAGE_BUCKET # crimeintel-evidence
+SUPABASE_STORAGE_PUBLIC # true/false
+STORAGE_DRIVER          # local | supabase (auto-inferred from DATABASE_URL)
+NEXT_PUBLIC_SUPABASE_URL     # in frontend/.env for browser sign-in
+NEXT_PUBLIC_SUPABASE_ANON_KEY # in frontend/.env for browser sign-in
+```
+
+### Going live
+
+1. Fill the keys above.
+2. `npx prisma db push --schema backend/prisma/schema.prisma` (stop the dev server first).
+3. `npx prisma db generate --schema backend/prisma/schema.prisma`.
+4. Apply `backend/infrastructure/database/setup-supabase.sql` (RLS + bucket).
+5. `npm run dev` — new uploads store in Supabase Storage, logins verify via Supabase Auth, all data lives in Supabase Postgres.
 
 ---
 

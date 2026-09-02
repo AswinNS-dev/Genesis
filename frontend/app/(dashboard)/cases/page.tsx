@@ -55,6 +55,10 @@ export default async function CasesPage() {
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-3">
                   <p className="line-clamp-3 text-xs text-muted">{c.description}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.category ? <Badge variant="outline">{c.category}</Badge> : null}
+                    {c.jurisdiction ? <Badge variant="outline">{c.jurisdiction}</Badge> : null}
+                  </div>
                   <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
                     <span className="flex items-center gap-3">
                       <span>{c._count.documents} evidence</span>

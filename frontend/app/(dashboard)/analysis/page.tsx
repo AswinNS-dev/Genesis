@@ -17,12 +17,16 @@ import {
   BrainCircuit,
   Eye,
   Users2,
+  Target,
+  GitMerge,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, EmptyState } from "@/components/ui/state";
+import { NetworkGraph, type GraphNode, type GraphLink } from "@/components/network/network-graph";
+import { entityColor, relationColor } from "@backend/lib/colors";
 import { cn } from "@/lib/utils";
 
 type Case = { id: string; caseId: string; title: string; status: string };
@@ -35,8 +39,8 @@ type Pattern = {
   relevance: number;
   createdAt: string;
 };
-type NodeItem = { id: string; label: string; type: string };
-type LinkItem = { source: string; target: string; type: string };
+type NodeItem = { id: string; label: string; type: string; color?: string };
+type LinkItem = { source: string; target: string; type: string; color?: string; weight?: number };
 type EventItem = { id: string; type: string; summary: string; eventAt: string; entityName: string | null; caseId: string | null };
 type LocationItem = { id: string; name: string; entities: { name: string; type: string }[]; activity: number };
 type CommItem = { id: string; caller: string; receiver: string; count: number; strength: number };
@@ -219,6 +223,29 @@ function ModuleLink({ href }: { href: string }) {
 }
 
 function NetworkTab({ nodes, links }: { nodes: NodeItem[]; links: LinkItem[] }) {
+  const graphNodes: GraphNode[] = useMemo(
+    () =>
+      nodes.map((n) => ({
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        color: n.color ?? entityColor(n.type),
+      })),
+    [nodes]
+  );
+
+  const graphLinks: GraphLink[] = useMemo(
+    () =>
+      links.map((l) => ({
+        source: l.source,
+        target: l.target,
+        type: l.type,
+        color: l.color ?? relationColor(l.type),
+        weight: Math.max(1, Math.min(4, l.weight ?? 2)),
+      })),
+    [links]
+  );
+
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const degrees = useMemo(() => {
     const d = new Map<string, number>();
@@ -253,6 +280,27 @@ function NetworkTab({ nodes, links }: { nodes: NodeItem[]; links: LinkItem[] }) 
         <Stat label="Entity types" value={new Set(nodes.map((n) => n.type)).size} />
         <Stat label="Avg. degree" value={avgDegree.toFixed(1)} />
       </div>
+
+      <Card>
+        <CardHeader
+          title="Knowledge graph"
+          description="Interactive entity and relationship visualization across the intelligence graph"
+          action={<ModuleLink href="/network" />}
+        />
+        <CardContent>
+          {graphNodes.length === 0 ? (
+            <EmptyState title="No entities" description="Entities will appear as cases progress and records are merged." />
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border bg-surface-raised/30">
+              <NetworkGraph nodes={graphNodes} links={graphLinks} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <PersonGraphCard />
+
+      <CrossDatasetGraphCard />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -308,6 +356,317 @@ function NetworkTab({ nodes, links }: { nodes: NodeItem[]; links: LinkItem[] }) 
         </Card>
       </div>
     </div>
+  );
+}
+
+function PersonGraphCard() {
+  const [cases, setCases] = useState<{ id: string; caseId: string; title: string }[]>([]);
+  const [caseId, setCaseId] = useState("");
+  const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
+  const [personId, setPersonId] = useState("");
+  const [hops, setHops] = useState(2);
+  const [nodes, setNodes] = useState<GraphNode[]>([]);
+  const [links, setLinks] = useState<GraphLink[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [generated, setGenerated] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const c = await fetch("/api/intel-data?scope=cases").then((r) => r.json());
+      setCases(c.cases ?? []);
+      if (c.cases?.[0]) setCaseId(c.cases[0].id);
+    })();
+  }, []);
+
+  async function selectCase(id: string) {
+    setCaseId(id);
+    setPersonId("");
+    setNodes([]);
+    setLinks([]);
+    setGenerated(false);
+    if (!id) {
+      setPersons([]);
+      return;
+    }
+    const res = await fetch(`/api/cases/${id}`).then((r) => r.json());
+    setPersons(res.persons ?? []);
+  }
+
+  async function generateGraph() {
+    if (!personId) return;
+    setLoading(true);
+    setGenerated(false);
+    try {
+      const res = await fetch(`/api/intel-data/egocentric?entity=${personId}&hops=${hops}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to build graph");
+      setNodes(data.nodes ?? []);
+      setLinks(data.links ?? []);
+      setGenerated(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Person-focused knowledge graph"
+        description="Pick a case and a person to generate a graph of everyone linked to that person, up to the chosen hop depth."
+        action={<Target className="h-4 w-4 text-muted" />}
+      />
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={caseId}
+            onChange={(e) => selectCase(e.target.value)}
+            className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40"
+          >
+            <option value="">Select a case…</option>
+            {cases.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.caseId} — {c.title}
+              </option>
+            ))}
+          </select>
+          <select
+            value={personId}
+            onChange={(e) => setPersonId(e.target.value)}
+            disabled={!caseId}
+            className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+          >
+            <option value="">Select a person…</option>
+            {persons.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-raised/40 p-1">
+            <span className="pl-2 pr-1 text-[11px] font-medium uppercase tracking-wide text-muted">Hops</span>
+            {[1, 2, 3].map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setHops(h)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
+                  hops === h ? "bg-accent text-background" : "text-muted hover:text-foreground"
+                )}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
+          <Button onClick={generateGraph} disabled={loading || !personId}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+            {loading ? "Generating…" : "Generate graph"}
+          </Button>
+        </div>
+
+        {generated ? (
+          nodes.length === 0 ? (
+            <EmptyState title="No connections" description="This person has no known linked entities within 2 hops." />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="success">{nodes.length} entities</Badge>
+                <Badge variant="outline">{links.length} relationships</Badge>
+                <Badge variant="outline">{new Set(nodes.map((n) => n.type)).size} entity types</Badge>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border bg-surface-raised/30">
+                <NetworkGraph nodes={nodes} links={links} />
+              </div>
+              <p className="text-[11px] text-muted">
+                Highlighted node is the selected person. Lines color-code relationship types; width reflects strength.
+              </p>
+            </>
+          )
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CrossDatasetGraphCard() {
+  const [datasets, setDatasets] = useState<{ id: string; name: string; _count: { records: number } }[]>([]);
+  const [datasetId, setDatasetId] = useState("");
+  const [persons, setPersons] = useState<{ id: string; name: string; isNew: boolean }[]>([]);
+  const [personId, setPersonId] = useState("");
+  const [expand, setExpand] = useState(true);
+  const [hops, setHops] = useState(2);
+  const [nodes, setNodes] = useState<GraphNode[]>([]);
+  const [links, setLinks] = useState<GraphLink[]>([]);
+  const [newIds, setNewIds] = useState<string[]>([]);
+  const [crossCount, setCrossCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [generated, setGenerated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const d = await fetch("/api/datasets").then((r) => r.json());
+      setDatasets(d.datasets ?? []);
+      if (d.datasets?.[0]) selectDataset(d.datasets[0].id);
+    })();
+  }, []);
+
+  async function selectDataset(id: string) {
+    setDatasetId(id);
+    setPersonId("");
+    setNodes([]);
+    setLinks([]);
+    setGenerated(false);
+    if (!id) {
+      setPersons([]);
+      return;
+    }
+    const res = await fetch(`/api/datasets/${id}/graph`).then((r) => r.json());
+    setPersons(res.persons ?? []);
+  }
+
+  async function generate() {
+    if (!datasetId || !personId) return;
+    setLoading(true);
+    setGenerated(false);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/datasets/${datasetId}/graph?person=${personId}&expand=${expand}&hops=${hops}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to build graph");
+      setNodes(data.nodes ?? []);
+      setLinks(data.links ?? []);
+      setNewIds((data.nodes ?? []).filter((n: { isNew: boolean }) => n.isNew).map((n: { id: string }) => n.id));
+      setCrossCount((data.links ?? []).filter((l: GraphLink) => l.color === "#f59e0b").length);
+      setGenerated(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to build graph");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Cross-dataset relationship graph"
+        description="Pick a dataset and a person from your new data, then choose whether to analyze it alone or with existing data — cross-links to existing people are emphasized."
+        action={<GitMerge className="h-4 w-4 text-muted" />}
+      />
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={datasetId}
+            onChange={(e) => selectDataset(e.target.value)}
+            className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40"
+          >
+            <option value="">Select a dataset…</option>
+            {datasets.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} ({d._count.records} records)
+              </option>
+            ))}
+          </select>
+          <select
+            value={personId}
+            onChange={(e) => setPersonId(e.target.value)}
+            disabled={!datasetId}
+            className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+          >
+            <option value="">Select a person in this dataset…</option>
+            {persons.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.isNew ? " · NEW" : " · existing"}
+              </option>
+            ))}
+          </select>
+          <Button onClick={generate} disabled={loading || !personId}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitMerge className="h-4 w-4" />}
+            {loading ? "Generating…" : "Generate graph"}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised/40 px-3 py-1.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setExpand(false)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-semibold transition-colors",
+                !expand ? "bg-accent text-background" : "text-muted hover:text-foreground"
+              )}
+            >
+              Alone
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpand(true)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-semibold transition-colors",
+                expand ? "bg-accent text-background" : "text-muted hover:text-foreground"
+              )}
+            >
+              With existing data
+            </button>
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-raised/40 p-1">
+            <span className="pl-2 pr-1 text-[11px] font-medium uppercase tracking-wide text-muted">Hops</span>
+            {[1, 2, 3].map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setHops(h)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors",
+                  hops === h ? "bg-accent text-background" : "text-muted hover:text-foreground"
+                )}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            {expand
+              ? "Includes this person plus everyone they connect to in the existing database."
+              : "Restricts the view to this dataset's own records only."}
+          </p>
+        </div>
+
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
+        {generated ? (
+          nodes.length === 0 ? (
+            <EmptyState title="No relationships" description="No connected entities found for the selected person and scope." />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="success">{nodes.length} entities</Badge>
+                <Badge variant="outline">{links.length} relationships</Badge>
+                <Badge variant={expand && crossCount > 0 ? "warning" : "outline"}>{crossCount} cross-link{crossCount === 1 ? "" : "s"}</Badge>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border bg-surface-raised/30">
+                <NetworkGraph nodes={nodes} links={links} selectedIds={newIds} />
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border-2 border-accent bg-[#101a2e]" /> NEW from this dataset
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border-2 border-border bg-[#101a2e]" /> Existing in database
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-6 bg-amber-500" /> Cross-link (new ↔ existing)
+                </span>
+              </div>
+              <p className="text-[11px] text-muted">Thicker node rings and amber edges highlight connections between your new data and the existing database.</p>
+            </>
+          )
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

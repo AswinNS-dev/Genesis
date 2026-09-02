@@ -30,6 +30,8 @@ htmlcov/
 node_modules/
 dist/
 out/
+.next/
+frontend/.next/
 .env
 .env.local
 .env.production

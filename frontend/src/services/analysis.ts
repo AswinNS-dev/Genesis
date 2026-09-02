@@ -32,6 +32,82 @@ export interface EntityMatchRecord {
   createdAt?: string;
 }
 
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  riskScore: number;
+  degree?: number;
+  degreeCentrality?: number;
+  betweenness?: number;
+  closeness?: number;
+  pagerank?: number;
+  communityId?: number;
+  x?: number;
+  y?: number;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label?: string;
+  strength: number;
+  count?: number;
+}
+
+export interface GraphStatistics {
+  totalNodes: number;
+  totalEdges: number;
+  density: number;
+  averageDegree: number;
+  connectedComponentsCount: number;
+  communitiesCount: number;
+  isolatedNodesCount: number;
+  diameterEstimate: number;
+}
+
+export interface GraphAnalysisData {
+  statistics: GraphStatistics;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  communities: Array<{
+    id: number;
+    name: string;
+    color?: string;
+    size: number;
+    nodes: string[];
+  }>;
+  patterns: Array<{
+    id: string;
+    type: string;
+    title: string;
+    summary: string;
+    severity: string;
+    relevance: number;
+    entities: string[];
+  }>;
+  topInfluencers: Array<{
+    id: string;
+    name: string;
+    role?: string;
+    type: string;
+    pagerank: number;
+    betweenness: number;
+    degree: number;
+    riskScore: number;
+  }>;
+  topBridges: Array<{
+    source: string;
+    target: string;
+    sourceName?: string;
+    targetName?: string;
+    type: string;
+    betweennessImpact?: number;
+  }>;
+}
+
 export interface LocationAnomalyRecord {
   person_id?: string;
   location_id?: string;
@@ -91,6 +167,15 @@ export interface IntelligenceHealthResponse {
 }
 
 export const analysisService = {
+  getGraphAnalysis: async (caseId?: string): Promise<GraphAnalysisData> => {
+    const query = caseId ? `?caseId=${encodeURIComponent(caseId)}` : '';
+    return apiRequest<GraphAnalysisData>(`/analysis/graph-analysis${query}`);
+  },
+
+  getGraph: async (): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> => {
+    return apiRequest<{ nodes: GraphNode[]; edges: GraphEdge[] }>('/analysis/graph');
+  },
+
   extractNER: async (text: string, caseId?: string): Promise<NERResult> => {
     const query = caseId ? `?caseId=${caseId}` : '';
     return apiRequest<NERResult>(`/intelligence/ner${query}`, {

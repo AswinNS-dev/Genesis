@@ -311,58 +311,40 @@ export class MockHeuristicPatternDetectorProvider implements PatternDetectorProv
 // Anomaly detector
 // ---------------------------------------------------------------------------
 
+import { AnomalyDetectionEngine } from "../../intelligence/anomaly-detection";
+import { RelationshipExtractionEngine } from "../../intelligence/relationship-extraction";
+
 export class MockAnomalyDetectorProvider implements AnomalyDetectorProvider {
   readonly name = "mock";
-  readonly version = "1.0.0";
+  readonly version = "2.0.0";
 
   async detect(context: AnalysisContext): Promise<AnomalyResult[]> {
-    const results: AnomalyResult[] = [];
-    const calls = context.calls ?? [];
+    // Run the full anomaly detection engine (calls, financial, location, network graph)
+    const detailed = AnomalyDetectionEngine.detect(context);
+    const results = AnomalyDetectionEngine.toAnomalyResults(detailed);
 
-    // Communication spike detection
-    for (const call of calls) {
-      if (call.count >= 10) {
-        results.push({
-          type: "COMMUNICATION_SPIKE",
-          title: `Unusually high communication between ${call.a} and ${call.b}`,
-          description: `${call.count} recorded communications is elevated relative to typical contact patterns.`,
-          severity: "HIGH",
-          relatedEntities: [call.a, call.b],
-          supportingRecords: ["Communication_Record.csv"],
-          confidence: 0.85,
-          reasons: ["Contact count exceeds statistical threshold", "Sustained elevated frequency"],
-        });
-      }
-    }
-
-    // Broad multi-source footprint anomaly
+    // Also preserve multi-source footprint check
     for (const ds of context.dataSources ?? []) {
       const cc = (context.crossCases ?? []).find((c) => c.name === ds.name);
       if (ds.sources.length >= 4 || (ds.sources.length >= 2 && cc && cc.caseIds.length >= 2)) {
-        results.push({
-          type: "BROAD_FOOTPRINT",
-          title: `${ds.name} has a broad data footprint`,
-          description: `${ds.name} appears across ${ds.sources.length} independent sources${cc ? ` and ${cc.caseIds.length} cases` : ""}. A wide multi-source presence can indicate data duplication or a well-documented movement profile — verify before acting.`,
-          severity: "MEDIUM",
-          relatedEntities: [ds.name],
-          supportingRecords: ds.sources,
-          confidence: 0.8,
-          reasons: ["Entity present in multiple unrelated datasets", "Multi-case recurrence", "Footprint exceeds baseline"],
-        });
+        if (!results.some((r) => r.type === "BROAD_FOOTPRINT" && r.relatedEntities.includes(ds.name))) {
+          results.push({
+            type: "BROAD_FOOTPRINT",
+            title: `${ds.name} has a broad data footprint`,
+            description: `${ds.name} appears across ${ds.sources.length} independent sources${cc ? ` and ${cc.caseIds.length} cases` : ""}. A wide multi-source presence can indicate data duplication or a well-documented movement profile — verify before acting.`,
+            severity: "MEDIUM",
+            relatedEntities: [ds.name],
+            supportingRecords: ds.sources,
+            confidence: 0.8,
+            reasons: ["Entity present in multiple unrelated datasets", "Multi-case recurrence", "Footprint exceeds baseline"],
+            score: 0.8,
+            anomaly_type: "BROAD_FOOTPRINT",
+            affectedEntities: [ds.name],
+            evidence: { sources: ds.sources, caseCount: cc?.caseIds.length ?? 0 },
+            explanation: `${ds.name} appears across ${ds.sources.length} independent sources${cc ? ` and ${cc.caseIds.length} cases` : ""}.`,
+          });
+        }
       }
-    }
-
-    if (!results.length) {
-      results.push({
-        type: "BASELINE",
-        title: "No anomalies above baseline",
-        description: "Patterns are within expected thresholds for the current dataset.",
-        severity: "LOW",
-        relatedEntities: [],
-        supportingRecords: [],
-        confidence: 0.9,
-        reasons: ["Baseline assessment"],
-      });
     }
 
     return results;
@@ -371,24 +353,37 @@ export class MockAnomalyDetectorProvider implements AnomalyDetectorProvider {
 
 // ---------------------------------------------------------------------------
 // Relationship detector
-// Derives potential relationships from a set of entities + records.
-// NOTE: In the current prototype, relationships primarily come from the
-// seed/graph data directly. This provider emits relationships derived purely
-// from structured record context, and is a *baseline* that real algorithms
-// (transformer rankers, GNN edge predictors, etc.) can replace.
 // ---------------------------------------------------------------------------
 
 export class MockRelationshipDetectorProvider implements RelationshipDetectorProvider {
   readonly name = "mock";
-  readonly version = "1.0.0";
+  readonly version = "2.0.0";
 
   async detect(
     entities: { id: string; name: string; type: string }[],
     records: unknown[]
   ): Promise<DetectedRelationship[]> {
-    // Baseline: co-occurrence within the provided entities.
-    // Future implementations should inspect `records` for call logs,
-    // transaction ledgers, shared ownership, location visits, etc.
+    const idMap = new Map<string, string>();
+    for (const e of entities) {
+      idMap.set(e.name, e.id);
+    }
+
+    const structuredRecords = Array.isArray(records)
+      ? (records.filter((r) => typeof r === "object" && r !== null) as Record<string, unknown>[])
+      : [];
+
+    const extracted = RelationshipExtractionEngine.extract(
+      { records: structuredRecords },
+      { knownEntities: entities.map((e) => ({ name: e.name, type: e.type as never, id: e.id })) }
+    );
+
+    const results = RelationshipExtractionEngine.toDetectedRelationships(extracted, idMap);
+
+    if (results.length > 0) {
+      return results;
+    }
+
+    // Co-occurrence fallback when no records are provided
     const persons = entities.filter((e) => e.type === "PERSON");
     const detected: DetectedRelationship[] = [];
 
@@ -400,8 +395,14 @@ export class MockRelationshipDetectorProvider implements RelationshipDetectorPro
           type: "CONNECTED_TO",
           label: `Possible relationship between ${persons[i].name} and ${persons[j].name}`,
           frequency: 0,
-          confidence: 0.5,
-          supportingRecords: records.length ? [] : [],
+          confidence: 50,
+          supportingRecords: [],
+          source: persons[i].name,
+          sourceType: "PERSON",
+          target: persons[j].name,
+          targetType: "PERSON",
+          relationship: "CONNECTED_TO",
+          explanation: `Possible connection between ${persons[i].name} and ${persons[j].name}.`,
         });
       }
     }

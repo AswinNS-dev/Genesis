@@ -161,3 +161,41 @@ export async function detectAnomalies(
 ): Promise<AnomalyResult[]> {
   return getAnomalyDetectorProvider().detect(ctx);
 }
+
+// ---------------------------------------------------------------------------
+// 6. RELATIONSHIPS — extract typed relationships from records or text
+// ---------------------------------------------------------------------------
+
+export async function extractRelationships(
+  input: { text?: string; records?: Record<string, unknown>[] },
+  hints?: string[]
+) {
+  const { RelationshipExtractionEngine } = await import("../intelligence/relationship-extraction");
+  return RelationshipExtractionEngine.extract(input, {
+    knownEntities: (hints ?? []).map((h) => ({ name: h, type: "PERSON" as const })),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 7. COMMUNICATION ANALYSIS — frequency profiling & spike detection
+// ---------------------------------------------------------------------------
+
+export async function analyzeCommunications(
+  records: unknown[],
+  options?: { baselineRates?: Record<string, number>; historicalKnownPairs?: string[] }
+) {
+  const { CommunicationAnalysisEngine } = await import("../intelligence/communication-analysis");
+  return CommunicationAnalysisEngine.analyze(records, options);
+}
+
+// ---------------------------------------------------------------------------
+// 8. TRANSACTION ANALYSIS — financial outlier & flow chain detection
+// ---------------------------------------------------------------------------
+
+export async function analyzeTransactions(
+  records: unknown[],
+  options?: { baselineRatesPerPeriod?: Record<string, number>; historicalKnownPairs?: string[] }
+) {
+  const { TransactionAnalysisEngine } = await import("../intelligence/transaction-analysis");
+  return TransactionAnalysisEngine.analyze(records, options);
+}

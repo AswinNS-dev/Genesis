@@ -23,6 +23,11 @@ import {
   MockAnomalyDetectorProvider,
   MockRelationshipDetectorProvider,
 } from "./mock-analyzers";
+import {
+  AdvancedExtractionProvider,
+  AdvancedAnomalyDetectorProvider,
+  AdvancedRelationshipDetectorProvider,
+} from "./advanced-providers";
 
 // Ensure providers are only registered once (SSR/hot-reload safe).
 let registered = false;
@@ -32,11 +37,14 @@ export function registerProviders(): void {
   registered = true;
 
   registerExtractionProvider(new MockExtractionProvider());
+  registerExtractionProvider(new AdvancedExtractionProvider());
   registerSummarizerProvider(new MockSummarizerProvider());
   registerLeadGeneratorProvider(new MockLeadGeneratorProvider());
   registerPatternDetectorProvider(new MockPatternDetectorProvider());
   registerPatternDetectorProvider(new MockHeuristicPatternDetectorProvider());
   registerEntityMatcherProvider(new MockEntityMatcherProvider());
   registerAnomalyDetectorProvider(new MockAnomalyDetectorProvider());
+  registerAnomalyDetectorProvider(new AdvancedAnomalyDetectorProvider());
   registerRelationshipDetectorProvider(new MockRelationshipDetectorProvider());
+  registerRelationshipDetectorProvider(new AdvancedRelationshipDetectorProvider());
 }

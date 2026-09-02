@@ -20,7 +20,11 @@ export type EntityType =
   | "ORGANIZATION"
   | "FINANCIAL"
   | "DATE"
-  | "EVENT";
+  | "EVENT"
+  | "BANK_ACCOUNT"
+  | "CASE"
+  | "FIR"
+  | "TRANSACTION";
 
 export interface ExtractionResult {
   type: EntityType;
@@ -50,12 +54,27 @@ export interface MatchResult {
 export interface DetectedRelationship {
   sourceId: string;
   targetId: string;
-  type: string; // COMMUNICATION | TRANSACTION | LOCATION | ...
+  type: string; // COMMUNICATION | TRANSACTION | LOCATION | OWNERSHIP | CASE | CONNECTED_TO | ...
   label: string;
   frequency: number;
-  timestamp?: Date;
+  timestamp?: Date | string;
   confidence: number;
   supportingRecords: string[];
+  // Extended metadata for investigation and knowledge graph
+  source?: string;
+  sourceType?: string;
+  target?: string;
+  targetType?: string;
+  relationship?: string;
+  amount?: number;
+  currency?: string;
+  duration?: number;
+  period?: string;
+  channel?: string;
+  evidenceText?: string;
+  sourceRecord?: string;
+  metadata?: Record<string, unknown>;
+  explanation?: string;
 }
 
 export interface DetectedPattern {
@@ -74,11 +93,19 @@ export interface AnomalyResult {
   type: string;
   title: string;
   description: string;
-  severity: "LOW" | "MEDIUM" | "HIGH";
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   relatedEntities: string[];
   supportingRecords: string[];
   confidence: number;
   reasons: string[];
+  // Extended explainable anomaly fields
+  score?: number; // Normalized continuous score 0.0 to 1.0
+  anomaly_type?: string;
+  affectedEntities?: string[];
+  timestamp?: Date | string;
+  evidence?: Record<string, unknown>;
+  evidenceDetails?: Record<string, unknown>;
+  explanation?: string;
 }
 
 export interface InvestigationSummary {
@@ -98,6 +125,37 @@ export interface InvestigationLead {
   relatedEntities?: string[];
 }
 
+export interface StructuredCallRecord {
+  caller: string;
+  receiver: string;
+  timestamp?: string | Date;
+  durationSeconds?: number;
+  callType?: string;
+  towerId?: string;
+  sourceRecord?: string;
+}
+
+export interface StructuredTransactionRecord {
+  sender: string;
+  receiver: string;
+  amount: number;
+  currency?: string;
+  timestamp?: string | Date;
+  channel?: string; // UPI, RTGS, IMPS, CASH, WIRE
+  transactionId?: string;
+  sourceRecord?: string;
+}
+
+export interface StructuredLocationRecord {
+  entity: string;
+  location: string;
+  timestamp?: string | Date;
+  durationMinutes?: number;
+  latitude?: number;
+  longitude?: number;
+  sourceRecord?: string;
+}
+
 export interface AnalysisContext {
   entities?: { id?: string; type: string; name: string; value?: string }[];
   relationships?: {
@@ -106,17 +164,21 @@ export interface AnalysisContext {
     targetName: string;
     strength?: number;
     count?: number;
+    amount?: number;
+    records?: string[];
   }[];
-  events?: { type?: string; summary?: string; eventAt?: Date; location?: string }[];
-  locations?: { name: string; entities: string[] }[];
-  calls?: { a: string; b: string; count: number }[];
+  events?: { type?: string; summary?: string; eventAt?: Date; location?: string; detail?: string }[];
+  locations?: { name: string; entities: string[]; activity?: number }[];
+  calls?: { a: string; b: string; count: number; timestamps?: (Date | string)[]; durations?: number[] }[];
+  transactions?: { sender: string; receiver: string; amount: number; count?: number; timestamp?: Date | string }[];
   sharedVehicles?: { vehicle: string; people: string[] }[];
   transactionChains?: string[];
-  people?: { name: string; events: { type: string; location?: string }[] }[];
+  people?: { name: string; events: { type: string; location?: string; eventAt?: Date }[] }[];
   organizations?: string[];
   crossCases?: { name: string; caseIds: string[] }[];
   dataSources?: { name: string; sources: string[] }[];
   financialAccounts?: { account: string; entities: string[] }[];
+  historicalCallRates?: Record<string, number>; // baseline rates (e.g. calls/week)
   caseId?: string;
 }
 

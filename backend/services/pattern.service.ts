@@ -256,7 +256,18 @@ export class PatternDetectionService {
       .filter((e) => e.type === "PERSON")
       .map((e) => ({ name: e.name, events: e.timelineEvents.map((ev) => ({ type: ev.type })) }));
 
+    const contextEntities = entities.map((e) => ({ id: e.id, type: e.type, name: e.name, value: e.name }));
+    const contextRels = relationships.map((r) => ({
+      type: r.type,
+      sourceName: r.source.name,
+      targetName: r.target.name,
+      strength: r.strength,
+      count: r.count,
+    }));
+
     return {
+      entities: contextEntities,
+      relationships: contextRels,
       people,
       organizations: entities.filter((e) => e.type === "ORGANIZATION").map((e) => e.name),
       calls: callList,

@@ -1,0 +1,4 @@
+[
+  {"caller": "9876512345", "receiver": "9822013345", "duration_sec": 340, "timestamp": "2026-03-01T02:15:00Z"},
+  {"caller": "9822013345", "receiver": "9988776655", "duration_sec": 120, "timestamp": "2026-03-01T03:00:00Z"}
+]

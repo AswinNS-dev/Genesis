@@ -1,8 +1,0 @@
-{
-  "precision": 1.0,
-  "recall": 0.60075,
-  "f1": 0.7505856629704826,
-  "false_match_rate": 0.0,
-  "false_non_match_rate": 0.39925,
-  "recommended_threshold": 0.6
-}

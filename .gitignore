@@ -1,51 +1,57 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-frontend/.next/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Node / React / Vite
+node_modules/
+dist/
+out/
+.env
+.env.local
+.env.production
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# local env files (may contain the Supabase service role key)
-.env
-.env*.local
-frontend/.env
-backend/.env
-
-# vercel
-.vercel
-
-# sqlite demo database
-backend/prisma/*.db
-backend/prisma/*.db-journal
-
-# typescript
 *.tsbuildinfo
-next-env.d.ts
 
-# Machine Learning
+# Database & Local Uploads
+*.db-journal
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Machine Learning & Model Artifacts
 ml/models/
 ml/data/*.json
-__pycache__/
-*.pyc
-synthetic_entities_100k.csv
+backend/app/intelligence/models/
+
+# IDE & OS Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

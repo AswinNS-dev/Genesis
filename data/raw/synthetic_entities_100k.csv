@@ -1,0 +1,11 @@
+entity_id,name,type,phone,vehicle_plate,location,organization,risk_score
+ENT-10001,Rahul Kumar,PERSON,9876512345,DL01AB1234,Sector 18 Noida,ABC Logistics,85
+ENT-10002,Amit Sharma,PERSON,9822013345,KA05XY6789,Central Market,Sharma Pharma,90
+ENT-10003,Suresh Verma,PERSON,9988776655,MH12CD5678,Industrial Area,Mehta Imports,75
+ENT-10004,Priya Singh,PERSON,9811223344,DL03EF9999,Vasant Vihar,Global Traders,60
+ENT-10005,Arjun Mehta,PERSON,9833445566,HR26PQ4321,Cyber City,Fintech Apex,80
+ENT-10006,Vikram Sethi,PERSON,9844556677,UP16GH7890,Connaught Place,Northwind Freight,65
+ENT-10007,Neha Kapoor,PERSON,9855667788,DL08JK5432,Saket District,Titan Holdings,45
+ENT-10008,Deepak Rawat,PERSON,9866778899,HR51MN6543,Golf Course Road,Zenith Mining,70
+ENT-10009,Ravi Chawla,PERSON,9877889900,MH04RS8765,Bandra Kurla Complex,Apex Ventures,55
+ENT-10010,Karan Johar,PERSON,9888990011,KA01TU3210,Whitefield Tech Park,Infra Secure,50

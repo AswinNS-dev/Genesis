@@ -1,7 +1,10 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ["./app/**/*.{js,ts,jsx,tsx,mdx}","./components/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx,html}",
+  ],
   theme: {
     extend: {
       colors: {
@@ -16,20 +19,8 @@ const config: Config = {
         muted: "var(--muted)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "monospace"],
-      },
-      boxShadow: {
-        card: "0 1px 2px rgba(2, 6, 23, 0.4), 0 0 0 1px var(--border)",
-      },
-      keyframes: {
-        "fade-in": {
-          from: { opacity: "0", transform: "translateY(4px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-      },
-      animation: {
-        "fade-in": "fade-in 0.25s ease-out",
+        sans: ["system-ui", "-apple-system", "sans-serif"],
+        mono: ["ui-monospace", "monospace"],
       },
     },
   },

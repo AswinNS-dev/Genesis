@@ -1,138 +1,88 @@
-# CrimeIntel — AI-Assisted Investigation Platform (Prototype)
+# CrimeIntel
 
-A full-stack Next.js 14 (App Router) prototype for an AI-assisted criminal investigation
-workbench. Built with **fictional demo data** only. All AI outputs are framed as
-investigative leads requiring human verification — never guilt determinations.
+An enterprise-grade AI-assisted criminal investigation platform built with **Python (FastAPI)** and **React (TypeScript + Vite)**.
 
-## Stack
+---
 
-- Next.js 14 (TypeScript, App Router)
-- Tailwind CSS (dark saffron-accent theme)
-- Prisma ORM + SQLite (`prisma/dev.db`) — switchable to Supabase PostgreSQL
-- NextAuth.js (Credentials provider, JWT sessions)
-- Custom SHA-256 chained ledger (`lib/blockchain.ts`)
-- Deterministic "mock" AI layer (`lib/ai.ts`, no external LLM required)
-- Pluggable storage (`backend/infrastructure/storage/`): local filesystem ↔ Supabase Storage
+## Architecture Overview
 
-## Getting Started
+```
+CrimeIntel/
+│
+├── frontend/                         # React + TypeScript (Vite)
+│   ├── public/
+│   ├── src/
+│   │   ├── app/                      # Router & Context Providers
+│   │   ├── components/               # UI, Layout, Charts, Graph
+│   │   ├── features/                 # Cases, Entities, Analysis, Evidence, Blockchain
+│   │   ├── services/                 # API Clients (Cases, Entities, Auth, Reports)
+│   │   ├── hooks/
+│   │   ├── types/
+│   │   ├── utils/
+│   │   └── styles/
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+│
+├── backend/                          # Python + FastAPI
+│   ├── app/
+│   │   ├── main.py                   # FastAPI application entry
+│   │   ├── api/routes/               # REST API endpoints
+│   │   ├── core/                     # Case & Entity domain logic
+│   │   ├── data_processing/          # Parsers & Normalizers
+│   │   ├── intelligence/             # AI Matchers & Anomaly detectors
+│   │   ├── graph/                    # Network Graph & Pathfinding
+│   │   ├── ai/                       # Summarizers & Explainability
+│   │   ├── database/                 # SQLAlchemy 2.0 ORM & Repositories
+│   │   ├── security/                 # Auth, RBAC & Audit
+│   │   ├── blockchain/               # SHA-256 Chained Evidence Ledger
+│   │   ├── storage/                  # Local / Supabase storage
+│   │   ├── reports/                  # Case dossier generator
+│   │   ├── services/                 # Service layer
+│   │   └── config/                   # Settings & Environment
+│   ├── tests/                        # Pytest test suite
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── data/                             # Synthetic & sample datasets
+│   ├── raw/synthetic_entities_100k.csv
+│   ├── processed/
+│   └── samples/
+│
+├── docs/                             # Architecture & API specifications
+│   ├── ARCHITECTURE.md
+│   ├── API.md
+│   └── DATASET.md
+│
+├── .gitignore
+├── README.md
+└── docker-compose.yml
+```
 
-1. Install dependencies:
+---
 
+## Quickstart
+
+### 1. Python Backend Setup
 ```bash
+# Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Seed database with demo records & blockchain ledger
+python seed.py
+
+# Launch FastAPI backend (http://localhost:8000)
+python backend/app/main.py
+```
+
+### 2. React Frontend Setup
+```bash
+cd frontend
 npm install
-```
-
-2. Set up the database (SQLite file + seed demo data):
-
-```bash
-npx prisma migrate dev --name init   # or: npx prisma db push
-npx prisma db seed                   # or: node prisma/seed.ts
-```
-
-3. Configure environment (`.env`):
-
-```
-DATABASE_URL="file:./dev.db"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="crimeintel-dev-secret-change-me"
-AI_MODE="mock"
-UPLOAD_DIR="./public/uploads"
-```
-
-4. Run the app:
-
-```bash
 npm run dev
 ```
 
-Open http://localhost:3000 and sign in.
-
-## Demo Accounts
-
-| Role        | Email                      | Password        |
-|-------------|----------------------------|-----------------|
-| Admin       | `admin@crimeintel.demo`    | `Admin@1234`    |
-| Investigator| `investigator@crimeintel.demo` | `Inv3stigator!` |
-| Analyst     | `analyst@crimeintel.demo`  | `An@lyst2024`   |
-| Viewer      | `viewer@crimeintel.demo`   | `V1ewer_Only`   |
-
-## Feature Map
-
-- **Dashboard** — KPIs (open/closed cases, entities, relationships, alerts, recent activity).
-- **Cases** — list, detail (notes, activity, AI-powered analysis), new-case dialog.
-- **Documents** — upload (hash recorded to ledger), AI entity extraction review (confirm/reject/edit).
-- **Entities** — person/organization/location/vehicle/account directory + match actions.
-- **Network** — interactive entity graph (zoom/pan/search/filter/expand/highlight),
-  relationship analysis, multi-hop pathfinding.
-- **Timeline** — case/entity events on a chronological view.
-- **Locations** — location-centric intelligence.
-- **Communications** — call/CDR-style records with frequency analysis.
-- **Transactions** — financial records with flow detection.
-- **AI Insights** — alerts and suggested leads (mock AI, human-verification framing).
-- **Evidence** — integrity verification vs. stored SHA-256; tamper simulation.
-- **Blockchain** — integrity ledger viewer + overall chain verification.
-- **Reports** — generate case intelligence reports.
-- **Settings / Audit Logs / Security** — admin-only (RBAC enforced).
-
-## Role-Based Access (RBAC)
-
-Enforced in `lib/rbac.ts`, `lib/auth.ts`, and per-page/API guards:
-
-- **ADMIN** — everything incl. `/settings`, `/audit-logs`, `/security`.
-- **INVESTIGATOR+** — `/cases`, `/documents`, `/evidence`, `/blockchain`, entity actions.
-- **ANALYST / VIEWER** — read-only surfaces; API writes return `403`.
-
-## Data Model
-
-Prisma schema (`prisma/schema.prisma`) covers:
-
-- Auth/security: `User`, `LoginAttempt`, `AuditLog`, `SecurityAlert`, `ApiKey`.
-- Investigation: `InvestigationCase`, `CaseNote`, `CaseActivity`.
-- Documents/evidence: `EvidenceDocument`, `BlockchainRecord`, `EvidenceVerification`, `ExtractionCandidate`.
-- Intelligence: `Entity`, `EntityMatch`, `Relationship`, `TimelineEvent`, `Pattern`, `AIAlert`.
-
-## API Routes
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/cases` | GET/POST | list / create cases |
-| `/api/cases/[id]/notes` | GET/POST | case notes |
-| `/api/cases/[id]/analyze` | POST | AI summary, leads, patterns |
-| `/api/upload` | POST | upload doc → hash → ledger → extraction |
-| `/api/extraction/[id]/confirm\|reject\|update` | POST | review extraction candidates |
-| `/api/evidence/[id]/verify\|tamper` | POST | integrity verify / simulate tamper |
-| `/api/blockchain/verify-chain` | POST | verify entire ledger chain |
-| `/api/matches/[id]/[action]` | POST | entity match actions |
-| `/api/intel-data` | GET | scoped data: documents, network, timeline, locations, communications, transactions, patterns, blockchain |
-| `/api/intel-data/analyze` | GET | relationship analysis between two entities |
-| `/api/intel-data/path` | GET | multi-hop path search |
-| `/api/intel-data/entity/[id]/links` | GET | entity connections |
-| `/api/reports` | GET | report generation |
-| `/api/search` | GET | global investigation search (cases/entities/evidence) |
-
-## Supabase
-
-The platform runs on the local SQLite + filesystem stack out of the box. To
-move the data layer to Supabase (PostgreSQL + Storage), follow the migration
-guide:
-
-- **Guide:** [`backend/infrastructure/database/migrate-to-supabase.md`](backend/infrastructure/database/migrate-to-supabase.md)
-- **RLS policies:** [`backend/infrastructure/database/setup-supabase.sql`](backend/infrastructure/database/setup-supabase.sql)
-
-Highlights:
-
-- Prisma ORM points at Supabase Postgres by changing `DATABASE_URL` (schema is Postgres-compatible).
-- Evidence/document files move to a private/public storage bucket via the
-  pluggable storage layer (`backend/infrastructure/storage/`). A single env
-  toggle (`STORAGE_DRIVER`) swaps filesystem ↔ Supabase Storage; mixed-backend
-  reads are supported during transition.
-- The **Supabase service role key is server-only** — `backend/infrastructure/supabase/client.ts`
-  guards against any client-side use, and nothing in the UI reads it.
-- RLS is enforced on all tables as defense-in-depth (the app itself accesses
-  the DB with the service role via Prisma, which bypasses RLS).
-
-## Notes
-
-- The prototype uses **only fictional data**; no real persons/cases.
-- `AI_MODE="mock"` keeps the AI layer deterministic and offline.
-- `npx next build` runs ESLint + type-checking; keep it green before shipping.
+### 3. Run Automated Tests
+```bash
+pytest
+```

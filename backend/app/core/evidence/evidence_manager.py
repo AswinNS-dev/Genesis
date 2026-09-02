@@ -62,7 +62,25 @@ class EvidenceManager:
         if not doc:
             raise ValueError("Evidence not found")
 
-        computed_hash = doc.sha256
+        # Re-read the file from disk and recompute its hash
+        computed_hash = None
+        if doc.filePath and storage_service.local.exists(doc.filePath):
+            try:
+                content = storage_service.local.read(doc.filePath)
+                computed_hash = sha256_bytes(content)
+            except Exception:
+                computed_hash = None
+
+        if computed_hash is None:
+            # File not accessible — cannot verify
+            return {
+                "success": False,
+                "status": doc.status,
+                "storedHash": doc.sha256,
+                "computedHash": None,
+                "detail": "File not found on disk; hash cannot be recomputed.",
+            }
+
         matches = (computed_hash == doc.sha256)
         doc.verified = matches
         doc.verifiedAt = datetime.now(timezone.utc)

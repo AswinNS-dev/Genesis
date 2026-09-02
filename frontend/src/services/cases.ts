@@ -111,10 +111,12 @@ export interface LocationItem {
 }
 
 export const caseService = {
-  getCases: async (status?: string, search?: string): Promise<Case[]> => {
+  getCases: async (status?: string, search?: string, limit: number = 100, offset: number = 0): Promise<Case[]> => {
     const params = new URLSearchParams();
     if (status && status !== 'ALL') params.append('status', status);
     if (search) params.append('search', search);
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiRequest<Case[]>(`/cases${query}`);
   },

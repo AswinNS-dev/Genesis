@@ -8,10 +8,11 @@ from backend.app.api.routes.blockchain import router as blockchain_router
 from backend.app.api.routes.reports import router as reports_router
 from backend.app.api.routes.search import router as search_router
 from backend.app.api.routes.intelligence import router as intelligence_router
+from backend.app.api.routes.dashboard import router as dashboard_router
 
 __all__ = [
     "auth_router", "cases_router", "entities_router",
     "datasets_router", "analysis_router", "evidence_router",
     "blockchain_router", "reports_router", "search_router",
-    "intelligence_router"
+    "intelligence_router", "dashboard_router"
 ]

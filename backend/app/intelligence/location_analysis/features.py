@@ -81,40 +81,30 @@ def generate_person_location_features(df):
     """
     Calculates behavioral metrics for person-location pairs.
     """
-    pl_stats = []
-    grouped = df.groupby(['person_id', 'location_id'])
-    
-    for (pid, lid), group in grouped:
-        visits = len(group)
-        unique_days = group['timestamp'].dt.date.nunique()
-        first_visit = group['timestamp'].min()
-        last_visit = group['timestamp'].max()
-        
-        # Time differences
-        sorted_times = group['timestamp'].sort_values()
-        time_diffs = sorted_times.diff().dt.total_seconds().dropna()
-        avg_time_between_visits = time_diffs.mean() if len(time_diffs) > 0 else 0
-        
-        night_visits = group['night_activity_flag'].sum()
-        weekend_visits = group['weekend_flag'].sum()
-        
-        pl_stats.append({
-            'person_id': pid,
-            'location_id': lid,
-            'visit_count': visits,
-            'unique_days': unique_days,
-            'average_time_between_visits_sec': avg_time_between_visits,
-            'night_visit_ratio': night_visits / visits if visits > 0 else 0,
-            'weekend_visit_ratio': weekend_visits / visits if visits > 0 else 0,
-            'unique_event_types': group['event_type'].nunique(),
-            'unique_cases': group['case_id'].nunique(),
-            'duration_days': (last_visit - first_visit).days + 1
-        })
-        
-    pl_df = pd.DataFrame(pl_stats)
-    
-    if pl_df.empty:
-        return pl_df
+    if df.empty:
+        return pd.DataFrame()
+
+    df_days = df.copy()
+    df_days['date'] = df_days['timestamp'].dt.date
+
+    grouped = df_days.groupby(['person_id', 'location_id'])
+    pl_df = grouped.agg(
+        visit_count=('timestamp', 'count'),
+        unique_days=('date', 'nunique'),
+        first_visit=('timestamp', 'min'),
+        last_visit=('timestamp', 'max'),
+        night_visits=('night_activity_flag', 'sum'),
+        weekend_visits=('weekend_flag', 'sum'),
+        unique_event_types=('event_type', 'nunique'),
+        unique_cases=('case_id', 'nunique'),
+    ).reset_index()
+
+    pl_df['average_time_between_visits_sec'] = 0.0
+    pl_df['night_visit_ratio'] = pl_df['night_visits'] / pl_df['visit_count']
+    pl_df['weekend_visit_ratio'] = pl_df['weekend_visits'] / pl_df['visit_count']
+    pl_df['duration_days'] = (pl_df['last_visit'] - pl_df['first_visit']).dt.days + 1
+
+    pl_df.drop(columns=['first_visit', 'last_visit', 'night_visits', 'weekend_visits'], inplace=True, errors='ignore')
 
     # Calculate global location entropy per person
     person_loc_counts = pl_df.groupby('person_id')['visit_count'].sum().rename('total_visits')
@@ -177,7 +167,7 @@ def generate_colocation_features(df, window_minutes=30):
     
     return agg_co
 
-def build_features(data_dir="data/raw"):
+def build_features(data_dir="data/raw", include_colocation=True):
     calls, vehicles, fir, master = load_data(data_dir)
     events = extract_location_events(calls, vehicles, fir, master)
     if events.empty:
@@ -185,7 +175,7 @@ def build_features(data_dir="data/raw"):
         
     events = generate_temporal_features(events)
     pl_features = generate_person_location_features(events)
-    co_features = generate_colocation_features(events)
+    co_features = generate_colocation_features(events) if include_colocation else pd.DataFrame()
     
     if not pl_features.empty:
         pl_features.fillna(0, inplace=True)

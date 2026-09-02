@@ -42,6 +42,9 @@ class ResolutionResultItem(BaseModel):
 class EntityResolutionResponse(BaseModel):
     results: List[ResolutionResultItem]
 
+class MatchStatusUpdateSchema(BaseModel):
+    status: str = Field(..., description="APPROVED or REJECTED")
+
 class LocationAnalyzeRequest(BaseModel):
     person_id: str
     

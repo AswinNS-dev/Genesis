@@ -184,7 +184,7 @@ class SupabaseService:
         }
 
     # --- Cases Management ---
-    def list_cases(self, limit: int = 50, offset: int = 0, status: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_cases(self, limit: int = 100, offset: int = 0, status: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
         params = {
             "limit": limit,
             "offset": offset,
@@ -193,7 +193,7 @@ class SupabaseService:
         if status and status.upper() != "ALL":
             params["status"] = f"ilike.*{status}*"
         if search:
-            params["or"] = f"(case_number.ilike.*{search}*,crime_type.ilike.*{search}*,accused_name.ilike.*{search}*,fir_id.ilike.*{search}*)"
+            params["or"] = f"(case_number.ilike.*{search}*,crime_type.ilike.*{search}*,accused_name.ilike.*{search}*,victim_name.ilike.*{search}*,fir_id.ilike.*{search}*,police_station.ilike.*{search}*,jurisdiction_city.ilike.*{search}*,officer_in_charge.ilike.*{search}*)"
         
         rows = self._get("fir_cases", params=params)
         if not isinstance(rows, list):
@@ -215,13 +215,102 @@ class SupabaseService:
                 "updatedAt": r.get("date_of_incident") or "2024-01-01",
                 "entityCount": 4,
                 "documentCount": 2,
-                "accusedName": r.get("accused_name"),
-                "victimName": r.get("victim_name"),
-                "courtStatus": r.get("court_status"),
-                "bailStatus": r.get("bail_status"),
+                "accusedName": r.get("accused_name") or "Under Investigation",
+                "victimName": r.get("victim_name") or "State",
+                "policeStation": r.get("police_station") or "Central Police Station",
+                "courtName": r.get("court_name") or "District Court",
+                "ipcSections": r.get("ipc_sections") or "IPC 420",
+                "courtStatus": r.get("court_status") or "Pending",
+                "bailStatus": r.get("bail_status") or "Pending",
                 "riskScore": int(float(r.get("risk_score") or 5) * 10)
             })
         return cases
+
+    def create_case(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Creates a new FIR Case record directly in Supabase fir_cases table.
+        """
+        import time
+        t_stamp = int(time.time()) % 100000
+        fir_id = data.get("fir_id") or f"FIR-{t_stamp:04d}/2026"
+        case_number = data.get("case_number") or data.get("caseId") or f"CR No.{t_stamp:03d}/2026"
+        
+        row = {
+            "fir_id": fir_id,
+            "case_number": case_number,
+            "crime_type": data.get("category") or data.get("crime_type") or "Financial Fraud",
+            "ipc_sections": data.get("ipc_sections") or "IPC 420, IPC 120B",
+            "accused_name": data.get("accusedName") or data.get("accused_name") or "Under Investigation",
+            "victim_name": data.get("victimName") or data.get("victim_name") or "State of India",
+            "police_station": data.get("police_station") or "Central Investigation Station",
+            "jurisdiction_city": data.get("jurisdiction") or "New Delhi",
+            "jurisdiction_state": "Delhi",
+            "date_of_incident": datetime.now().strftime("%Y-%m-%d"),
+            "date_of_filing": datetime.now().strftime("%Y-%m-%d"),
+            "status": "Under Investigation",
+            "officer_in_charge": data.get("assignedInvestigator") or "Officer Priya Singh",
+            "court_name": "Chief Judicial Magistrate Court",
+            "court_status": "Under Trial",
+            "bail_status": "Pending",
+            "risk_score": 6.8,
+            "notes": data.get("description") or data.get("title") or "New FIR case registered in Supabase."
+        }
+        self._post("fir_cases", row)
+        created = self.get_case_by_id(fir_id)
+        if created:
+            return created
+        return {
+            "id": fir_id,
+            "caseId": case_number,
+            "title": f"{row['crime_type']} - {row['jurisdiction_city']}",
+            "description": row["notes"],
+            "status": "UNDER_INVESTIGATION",
+            "classification": "RESTRICTED",
+            "category": row["crime_type"],
+            "jurisdiction": row["jurisdiction_city"],
+            "assignedInvestigator": row["officer_in_charge"],
+            "createdAt": row["date_of_filing"],
+            "updatedAt": row["date_of_incident"],
+            "entityCount": 0,
+            "documentCount": 0
+        }
+
+    def create_entity(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Creates a new Master Intelligence Entity directly in Supabase entities table.
+        """
+        import time
+        t_stamp = int(time.time()) % 100000
+        pid = data.get("person_id") or f"P-{t_stamp:06d}"
+        rec_id = f"REC-{t_stamp:07d}"
+        etype = data.get("type") or "PERSON"
+        val = data.get("value") or ""
+        
+        row = {
+            "record_id": rec_id,
+            "person_id": pid,
+            "person_name": data.get("name") or "Identified Subject",
+            "event_type": etype,
+            "phone_number": val if etype == "PHONE" else data.get("phone"),
+            "vehicle_plate": val if etype == "VEHICLE" else data.get("vehicle"),
+            "location": val if etype == "LOCATION" else data.get("location"),
+            "event_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "risk_score": str(data.get("riskScore") or 50),
+            "case_id": data.get("caseId") or "CR-2026-1001"
+        }
+        self._post("entities", row)
+        return {
+            "id": pid,
+            "name": row["person_name"],
+            "type": row["event_type"],
+            "value": row["phone_number"] or row["vehicle_plate"] or row["location"] or "Registered Entity",
+            "riskScore": int(row["risk_score"]),
+            "phone": row["phone_number"],
+            "vehicle": row["vehicle_plate"],
+            "location": row["location"],
+            "caseId": row["case_id"],
+            "createdAt": row["event_date"]
+        }
 
     def get_case_by_id(self, case_id: str) -> Optional[Dict[str, Any]]:
         # Search by fir_id or case_number

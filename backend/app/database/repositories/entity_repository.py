@@ -77,20 +77,24 @@ class EntityRepository:
         return supabase_db.get_entity_dossier(entity_id)
 
     def create(self, **kwargs) -> Dict[str, Any]:
-        entity = Entity(**kwargs)
-        self.db.add(entity)
-        self.db.commit()
-        self.db.refresh(entity)
-        return {
-            "id": entity.id,
-            "name": entity.name,
-            "type": entity.type,
-            "value": entity.value,
-            "riskScore": entity.riskScore,
-            "caseId": entity.caseId,
-            "createdAt": entity.createdAt.isoformat() if entity.createdAt else None,
-            "updatedAt": entity.updatedAt.isoformat() if entity.updatedAt else None,
-        }
+        try:
+            return supabase_db.create_entity(kwargs)
+        except Exception as e:
+            print(f"Supabase create_entity error: {e}")
+            entity = Entity(**kwargs)
+            self.db.add(entity)
+            self.db.commit()
+            self.db.refresh(entity)
+            return {
+                "id": entity.id,
+                "name": entity.name,
+                "type": entity.type,
+                "value": entity.value,
+                "riskScore": entity.riskScore,
+                "caseId": entity.caseId,
+                "createdAt": entity.createdAt.isoformat() if entity.createdAt else None,
+                "updatedAt": entity.updatedAt.isoformat() if entity.updatedAt else None,
+            }
 
     def update(self, entity_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         entity = self.db.query(Entity).filter(Entity.id == entity_id).first()

@@ -80,26 +80,31 @@ class CaseRepository:
         }
 
     def create(self, **kwargs) -> Dict[str, Any]:
-        case = InvestigationCase(**kwargs)
-        self.db.add(case)
-        self.db.commit()
-        self.db.refresh(case)
-        return {
-            "id": case.id,
-            "caseId": case.caseId,
-            "title": case.title,
-            "description": case.description,
-            "status": case.status,
-            "classification": case.classification,
-            "category": case.category,
-            "caseSource": case.caseSource,
-            "jurisdiction": case.jurisdiction,
-            "assignedInvestigator": case.assignedInvestigator,
-            "createdAt": case.createdAt.isoformat() if case.createdAt else None,
-            "updatedAt": case.updatedAt.isoformat() if case.updatedAt else None,
-            "entityCount": 0,
-            "documentCount": 0,
-        }
+        # Insert directly into Supabase fir_cases
+        try:
+            return supabase_db.create_case(kwargs)
+        except Exception as e:
+            print(f"Supabase create_case error: {e}")
+            case = InvestigationCase(**kwargs)
+            self.db.add(case)
+            self.db.commit()
+            self.db.refresh(case)
+            return {
+                "id": case.id,
+                "caseId": case.caseId,
+                "title": case.title,
+                "description": case.description,
+                "status": case.status,
+                "classification": case.classification,
+                "category": case.category,
+                "caseSource": case.caseSource,
+                "jurisdiction": case.jurisdiction,
+                "assignedInvestigator": case.assignedInvestigator,
+                "createdAt": case.createdAt.isoformat() if case.createdAt else None,
+                "updatedAt": case.updatedAt.isoformat() if case.updatedAt else None,
+                "entityCount": 0,
+                "documentCount": 0,
+            }
 
     def update(self, case_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         case = self.db.query(InvestigationCase).filter(

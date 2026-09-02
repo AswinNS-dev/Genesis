@@ -1,0 +1,6 @@
+{
+  "status": "TRAINED",
+  "person_location_pairs": 84292,
+  "co_location_pairs": 66618,
+  "hotspots_detected": 30
+}

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { ShieldCheck, ShieldAlert, ShieldBan, LogIn } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ShieldBan, LogIn, LockKeyhole } from "lucide-react";
 import { prisma } from "@backend/lib/prisma";
+import { SECURITY_POLICY } from "@backend/lib/auth";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { ResolveAlertButton } from "@/components/security/resolve-alert-button";
 
 export const metadata: Metadata = { title: "Security" };
 export const dynamic = "force-dynamic";
@@ -93,39 +95,64 @@ export default async function SecurityPage() {
                       {a.user?.name ?? "System"} · {new Date(a.createdAt).toLocaleString()}
                     </p>
                   </div>
+                  <ResolveAlertButton id={a.id} />
                 </div>
               ))
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Login Attempts"
-            description="Authentication events with status"
-          />
-          <CardContent className="space-y-2.5">
-            {recentAttempts.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">No login attempts recorded.</p>
-            ) : (
-              recentAttempts.map((a) => (
-                <div key={a.id} className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-foreground">{a.user?.name ?? a.email}</p>
-                    <p className="text-xs text-muted">
-                      {new Date(a.attemptAt).toLocaleString()} · {a.ip ?? "unknown IP"}
-                      {a.reason ? ` · ${a.reason}` : ""}
-                    </p>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader
+              title="Security policy"
+              description="Enforced by the authentication layer"
+              action={<LockKeyhole className="h-4 w-4 text-muted" />}
+            />
+            <CardContent className="space-y-2">
+              <PolicyRow label="Account lock threshold" value={`${SECURITY_POLICY.ACCOUNT_LOCK_THRESHOLD} failed attempts`} />
+              <PolicyRow label="Lock duration" value={`${SECURITY_POLICY.ACCOUNT_LOCK_MINUTES} minutes`} />
+              <PolicyRow label="Distributed brute-force alert" value={`≥ ${SECURITY_POLICY.BRUTE_FORCE_IP_THRESHOLD} failures from one IP in ${SECURITY_POLICY.BRUTE_FORCE_IP_WINDOW_MINUTES} min`} />
+              <PolicyRow label="Session expiry" value={`${Math.round(SECURITY_POLICY.SESSION_MAX_AGE_SECONDS / 3600)} hours`} />
+              <PolicyRow label="Account states" value="ACTIVE · DISABLED · LOCKED" />
+              <PolicyRow label="Evidence integrity" value="SHA-256 + blockchain hashing, tamper alerts" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader title="Login Attempts" description="Authentication events with status" />
+            <CardContent className="space-y-2.5">
+              {recentAttempts.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted">No login attempts recorded.</p>
+              ) : (
+                recentAttempts.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-foreground">{a.user?.name ?? a.email}</p>
+                      <p className="text-xs text-muted">
+                        {new Date(a.attemptAt).toLocaleString()} · {a.ip ?? "unknown IP"}
+                        {a.reason ? ` · ${a.reason}` : ""}
+                      </p>
+                    </div>
+                    <Badge variant={a.success ? "success" : "danger"}>
+                      {a.success ? "Success" : "Failed"}
+                    </Badge>
                   </div>
-                  <Badge variant={a.success ? "success" : "danger"}>
-                    {a.success ? "Success" : "Failed"}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function PolicyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-raised/40 px-3 py-2">
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-right text-[11px] text-muted">{value}</span>
     </div>
   );
 }

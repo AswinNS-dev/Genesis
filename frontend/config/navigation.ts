@@ -11,6 +11,7 @@ import {
   ScrollText,
   FileText,
   Settings,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -75,6 +76,12 @@ export const navGroups: NavGroup[] = [
         href: "/analysis",
         icon: Radar,
         description: "Unified investigative analysis workspace",
+      },
+      {
+        title: "Temporal Detection",
+        href: "/temporal",
+        icon: Clock,
+        description: "Pre/post crime temporal anomaly detection",
       },
     ],
   },

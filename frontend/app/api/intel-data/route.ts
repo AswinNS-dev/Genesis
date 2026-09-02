@@ -54,7 +54,10 @@ export async function GET(req: Request) {
   if (wants("candidates")) {
     out.candidates = await prisma.extractionCandidate.findMany({
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, value: true, context: true, status: true },
+      select: { 
+        id: true, type: true, value: true, context: true, status: true,
+        confidence: true, suggestedEntityId: true, resolutionDecision: true, resolutionSignals: true
+      },
     });
   }
   if (wants("nodes") || wants("entities")) {

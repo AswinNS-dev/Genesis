@@ -1,11 +1,24 @@
 import os
+from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+# Search and load .env from current directory, parent directory, or Genesis-2 root
+base_dir = Path(__file__).resolve().parent.parent.parent
+env_paths = [
+    Path.cwd() / ".env",
+    base_dir / ".env",
+    base_dir.parent / ".env"
+]
+for p in env_paths:
+    if p.exists():
+        load_dotenv(p, override=False)
 
 class Settings(BaseSettings):
     APP_NAME: str = "CrimeIntel"
     VERSION: str = "1.0.0"
-    SECRET_KEY: str = "crimeintel-secret-key-change-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
@@ -31,7 +44,7 @@ class Settings(BaseSettings):
     STORAGE_DRIVER: str = "local"
 
     class Config:
-        env_file = ".env"
+        env_file = [".env", "../.env"]
         extra = "allow"
 
 settings = Settings()

@@ -30,6 +30,8 @@ htmlcov/
 node_modules/
 dist/
 out/
+.next/
+frontend/.next/
 .env
 .env.local
 .env.production
@@ -39,6 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 
 # Database & Local Uploads
+*.db
 *.db-journal
 public/uploads/*
 !public/uploads/.gitkeep

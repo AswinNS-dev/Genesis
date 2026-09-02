@@ -1,145 +1,147 @@
-from typing import Dict, Any
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from backend.app.database.connection import get_db
 from backend.app.database.models import User
-from backend.app.security.rbac import get_current_user
-from backend.app.intelligence.ner.service import ner_service
-from backend.app.intelligence.entity_resolution.resolver import entity_resolution_service
+from backend.app.security.rbac import get_current_user_optional
+from backend.app.api.controllers.intelligence_controller import IntelligenceController
 from backend.app.api.schemas.intelligence_schema import (
     NERRequest, NERResponse,
     EntityResolutionRequest, EntityResolutionResponse,
-    LocationAnalyzeRequest, SummarizerRequest, LeadGenerateRequest, ExplainRequest
+    MatchStatusUpdateSchema, MatchStatusUpdateResponse,
+    EntityMatchItem,
+    LocationAnalyzeRequest, LocationAnalyzeResponse,
+    SummarizerRequest, SummarizerResponse,
+    LeadGenerateRequest, LeadGenerateResponse,
+    ExplainRequest, ExplainResponse,
+    IntelligenceHealthResponse
 )
-from backend.app.intelligence.location_analysis.features import build_features
-from backend.app.intelligence.location_analysis.anomaly_model import LocationAnomalyModel
-from backend.app.intelligence.summarizer.model import InvestigationSummarizer
-from backend.app.intelligence.lead_generator.features import build_lead_features
-from backend.app.intelligence.lead_generator.model import LeadRankerModel
-from backend.app.intelligence.explainability.feature_explainer import format_human_explanation
-from backend.app.intelligence.explainability.provenance import get_evidence_provenance
-import pandas as pd
-import os
-
-# Initialize models lazily or globally
-_location_model = None
-_summarizer_model = None
-_lead_model = None
-
-def get_location_model():
-    global _location_model
-    if _location_model is None:
-        _location_model = LocationAnomalyModel()
-        try:
-            _location_model.load("backend/app/intelligence/models/location/anomaly_model.pkl")
-        except:
-            pass
-    return _location_model
-
-def get_summarizer_model():
-    global _summarizer_model
-    if _summarizer_model is None:
-        try:
-            _summarizer_model = InvestigationSummarizer("backend/app/intelligence/models/summarizer")
-        except:
-            pass
-    return _summarizer_model
-
-def get_lead_model():
-    global _lead_model
-    if _lead_model is None:
-        _lead_model = LeadRankerModel()
-        try:
-            _lead_model.load("backend/app/intelligence/models/lead_generator/ranker.pkl")
-        except:
-            pass
-    return _lead_model
-
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"])
 
-@router.post("/ner", response_model=NERResponse)
+
+@router.post("/ner", response_model=NERResponse, summary="Extract forensic named entities from text")
 def extract_entities_endpoint(
     payload: NERRequest,
-    user: User = Depends(get_current_user)
+    caseId: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
     if not payload.text or not payload.text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Forensic input text cannot be empty."
         )
-    return ner_service.extract(payload.text)
+    ctrl = IntelligenceController(db)
+    return ctrl.extract_ner(payload.text, case_id=caseId)
 
-@router.post("/entity-resolution", response_model=EntityResolutionResponse)
+
+@router.post("/entity-resolution", response_model=EntityResolutionResponse, summary="Resolve multi-signal entity matches")
 def resolve_entities_endpoint(
     payload: EntityResolutionRequest,
-    user: User = Depends(get_current_user)
+    caseId: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
     extracted_dicts = [e.model_dump() for e in payload.extracted_entities]
-    candidate_dicts = [c.model_dump() for c in payload.registry_candidates]
+    candidate_dicts = [c.model_dump() for c in payload.registry_candidates] if payload.registry_candidates else None
 
-    results = entity_resolution_service.resolve(
+    ctrl = IntelligenceController(db)
+    results = ctrl.resolve_entities(
         extracted_entities=extracted_dicts,
-        registry_candidates=candidate_dicts
+        registry_candidates=candidate_dicts,
+        case_id=caseId
     )
     return {"results": results}
 
-@router.post("/location/analyze")
-def analyze_location(payload: LocationAnalyzeRequest, user: User = Depends(get_current_user)):
-    model = get_location_model()
-    # Mocking single prediction for endpoint speed using existing dataset
-    # In production, would build features specifically for payload.person_id
-    pl_features, _, _ = build_features("data/raw")
-    if pl_features.empty:
-        return {"error": "No data available"}
-        
-    person_features = pl_features[pl_features['person_id'] == payload.person_id]
-    if person_features.empty:
-        return {"error": "No location history found for person"}
-        
-    res = model.predict(person_features)
-    return {"analysis": res.to_dict(orient="records")}
 
-@router.post("/summarizer/summarize")
-def summarize_case(payload: SummarizerRequest, user: User = Depends(get_current_user)):
-    model = get_summarizer_model()
-    if not model:
-        return {"summary": "Fallback AI mode: Subject is involved in a high-priority incident.", "fallback": True}
-        
-    summary = model.summarize(payload.case_context)
-    return {"summary": summary, "fallback": False, "confidence": 0.9}
+@router.patch("/entity-matches/{match_id}", response_model=MatchStatusUpdateResponse, summary="Update entity match review status")
+def update_entity_match_status_endpoint(
+    match_id: str,
+    payload: MatchStatusUpdateSchema,
+    db: Session = Depends(get_db)
+):
+    ctrl = IntelligenceController(db)
+    updated = ctrl.update_match_status(match_id, payload.status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Entity match not found")
+    return {"success": True, "id": updated.id, "status": updated.status}
 
-@router.post("/leads/generate")
-def generate_leads(payload: LeadGenerateRequest, user: User = Depends(get_current_user)):
-    model = get_lead_model()
-    features = build_lead_features("data/raw")
-    if features.empty:
-        return {"leads": []}
-        
-    if payload.person_id:
-        features = features[(features['p1'] == payload.person_id) | (features['p2'] == payload.person_id)]
-        
-    if features.empty:
-        return {"leads": []}
-        
-    res = model.predict(features)
-    leads = res[res['priority_score'] > 0.4].sort_values(by='priority_score', ascending=False)
-    return {"leads": leads.to_dict(orient="records")}
 
-@router.post("/explain/prediction")
-def explain_prediction(payload: ExplainRequest, user: User = Depends(get_current_user)):
-    explanation = format_human_explanation(payload.feature_name, payload.feature_value, payload.direction)
-    provenance = get_evidence_provenance(payload.feature_name, payload.person_id, "data/raw")
-    
-    return {
-        "human_explanation": explanation,
-        "supporting_evidence": provenance
-    }
-@router.get("/health")
-def intelligence_health_check():
-    return {
-        "status": "healthy",
-        "service": "crimeintel-intelligence-ml",
-        "models": {
-            "ner": "active",
-            "entity_resolution": "active"
-        }
-    }
+@router.post("/relationships/extract")
+def extract_relationships_endpoint(payload: Dict[str, Any]):
+    events = payload.get("events", [])
+    if not isinstance(events, list):
+        raise HTTPException(status_code=400, detail="events must be an array")
+    return {"relationships": IntelligenceController().extract_relationships(events)}
+
+
+@router.post("/anomaly/communications")
+def communication_anomaly_endpoint(payload: Dict[str, Any]):
+    records = payload.get("records", [])
+    if not isinstance(records, list):
+        raise HTTPException(status_code=400, detail="records must be an array")
+    return {"anomalies": IntelligenceController().detect_communication_anomalies(records)}
+
+
+@router.post("/anomaly/transactions")
+def transaction_anomaly_endpoint(payload: Dict[str, Any]):
+    records = payload.get("records", [])
+    if not isinstance(records, list):
+        raise HTTPException(status_code=400, detail="records must be an array")
+    return {"anomalies": IntelligenceController().detect_transaction_anomalies(records)}
+
+
+@router.get("/entity-matches", response_model=List[EntityMatchItem], summary="List entity matches requiring review")
+def list_entity_matches_endpoint(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    ctrl = IntelligenceController(db)
+    return ctrl.list_matches(status_filter=status)
+
+
+@router.post("/location/analyze", response_model=LocationAnalyzeResponse, summary="Analyze location behavioral anomalies")
+def analyze_location_endpoint(
+    payload: LocationAnalyzeRequest,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    ctrl = IntelligenceController()
+    return ctrl.analyze_location_anomalies(payload.person_id)
+
+
+@router.post("/summarizer/summarize", response_model=SummarizerResponse, summary="Generate automated investigation summary")
+def summarize_case_endpoint(
+    payload: SummarizerRequest,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    ctrl = IntelligenceController()
+    return ctrl.summarize_investigation(payload.case_context)
+
+
+@router.post("/leads/generate", response_model=LeadGenerateResponse, summary="Score and rank investigative leads")
+def generate_leads_endpoint(
+    payload: LeadGenerateRequest,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    ctrl = IntelligenceController()
+    leads = ctrl.generate_investigative_leads(person_id=payload.person_id, case_id=payload.case_id)
+    return {"leads": leads}
+
+
+@router.post("/explain/prediction", response_model=ExplainResponse, summary="Explain feature contributions and provenance")
+def explain_prediction_endpoint(
+    payload: ExplainRequest,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    ctrl = IntelligenceController()
+    return ctrl.explain_feature_contribution(
+        feature_name=payload.feature_name,
+        feature_value=payload.feature_value,
+        direction=payload.direction,
+        person_id=payload.person_id
+    )
+
+
+@router.get("/health", response_model=IntelligenceHealthResponse, summary="Health status for ML services")
+def intelligence_health_check_endpoint():
+    return IntelligenceController.get_service_health()

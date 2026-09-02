@@ -19,7 +19,7 @@ from backend.app.api.routes import (
     auth_router, cases_router, entities_router,
     datasets_router, analysis_router, evidence_router,
     blockchain_router, reports_router, search_router,
-    intelligence_router
+    intelligence_router, dashboard_router, debug_router
 )
 
 def create_application() -> FastAPI:
@@ -31,14 +31,14 @@ def create_application() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if origin.strip()],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     api_prefix = "/api"
-    app.include_router(auth_router, prefix=api_prefix)
+    app.include_router(dashboard_router, prefix=api_prefix)
     app.include_router(cases_router, prefix=api_prefix)
     app.include_router(entities_router, prefix=api_prefix)
     app.include_router(datasets_router, prefix=api_prefix)
@@ -48,6 +48,8 @@ def create_application() -> FastAPI:
     app.include_router(reports_router, prefix=api_prefix)
     app.include_router(search_router, prefix=api_prefix)
     app.include_router(intelligence_router, prefix=api_prefix)
+    app.include_router(debug_router, prefix=api_prefix)
+    app.include_router(auth_router, prefix=api_prefix)
 
     @app.on_event("startup")
     def on_startup():

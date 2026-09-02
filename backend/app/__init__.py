@@ -10,4 +10,11 @@ for _p in [_project_root, _backend_dir]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+try:
+    from backend.app.main import app, create_application
+    __all__ = ["app", "create_application"]
+except ImportError:
+    app = None
+    create_application = None
+    __all__ = []
 __version__ = "1.0.0"

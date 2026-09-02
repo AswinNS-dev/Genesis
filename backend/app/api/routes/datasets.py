@@ -18,8 +18,7 @@ INGEST_BATCH_SIZE = 500  # rows per DB batch insert
 @router.get("", response_model=List[DatasetResponseSchema])
 def list_datasets_endpoint(
     caseId: Optional[str] = None,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     ctrl = DatasetController(db)
     return ctrl.list_datasets(case_id=caseId)

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { reportService } from '../../services/reports';
-import { caseService } from '../../services/cases';
-import { Case } from '../../types';
+import { caseService, Case } from '../../services/cases';
 import { FileText, Download, Printer, ChevronDown } from 'lucide-react';
 
 export const ReportsView: React.FC = () => {
@@ -13,7 +12,7 @@ export const ReportsView: React.FC = () => {
 
   useEffect(() => {
     caseService
-      .list()
+      .getCases()
       .then((data) => {
         setCases(data);
         if (data.length > 0) {

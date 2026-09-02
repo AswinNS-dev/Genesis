@@ -38,19 +38,18 @@ class LocationAnomalyModel:
             return df
             
         X = self.prepare_features(df)
-        scores = self.model.decision_function(X)
-        preds = self.model.predict(X)
-        
-        # Normalize scores to 0-1 (higher is more anomalous)
-        # IsolationForest returns lower scores for anomalies
-        # sc = -1 * scores
-        # scaled = (sc - sc.min()) / (sc.max() - sc.min() + 1e-9)
-        # Actually, let's just use the inverse decision function directly
-        anomaly_scores = 0.5 - scores
-        
+        try:
+            scores = self.model.decision_function(X)
+            preds = self.model.predict(X)
+            anomaly_scores = 0.5 - scores
+            is_anomaly = (preds == -1).astype(int)
+        except Exception:
+            anomaly_scores = np.zeros(len(df))
+            is_anomaly = np.zeros(len(df), dtype=int)
+
         df_out = df.copy()
         df_out['anomaly_score'] = anomaly_scores
-        df_out['is_anomaly'] = (preds == -1).astype(int)
+        df_out['is_anomaly'] = is_anomaly
         
         def assign_band(score):
             if score > 0.6: return 'HIGH'

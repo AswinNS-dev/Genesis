@@ -5,6 +5,8 @@ from backend.app.database.connection import get_db
 from backend.app.api.controllers.analysis_controller import AnalysisController
 from backend.app.graph.pathfinding import find_shortest_paths
 from backend.app.graph.builder import NetworkGraphBuilder
+from backend.app.database.models import User
+from backend.app.security.rbac import get_current_user, get_current_user_optional
 from backend.app.services.graph_analysis_service import GraphAnalysisService
 from backend.app.services.temporal_service import TemporalService
 

@@ -168,7 +168,7 @@ export const CasesView: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={fetchCases} 
+            onClick={() => fetchCases()} 
             className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
             title="Refresh Dockets"
           >

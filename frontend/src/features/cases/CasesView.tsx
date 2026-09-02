@@ -86,7 +86,7 @@ export const CasesView: React.FC = () => {
         classification: 'RESTRICTED',
         status: 'UNDER_INVESTIGATION'
       });
-      setCases([created, ...cases]);
+      await fetchCases();
       setIsCreateModalOpen(false);
       setNewTitle('');
       setNewDesc('');
@@ -94,7 +94,7 @@ export const CasesView: React.FC = () => {
       setNewVictim('');
       setNewJurisdiction('');
       setNewInvestigator('');
-      setSelectedCase(created);
+      openCaseDetails(created);
     } catch (err: any) {
       alert(`Case creation failed: ${err.message}`);
     } finally {

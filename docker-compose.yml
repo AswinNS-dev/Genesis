@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./dev.db
+      - SECRET_KEY=crimeintel-docker-secret-key
+      - STORAGE_DRIVER=local
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./dev.db:/app/dev.db
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://backend:8000
+    depends_on:
+      - backend

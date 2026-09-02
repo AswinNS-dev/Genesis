@@ -41,3 +41,19 @@ class ResolutionResultItem(BaseModel):
 
 class EntityResolutionResponse(BaseModel):
     results: List[ResolutionResultItem]
+
+class LocationAnalyzeRequest(BaseModel):
+    person_id: str
+    
+class SummarizerRequest(BaseModel):
+    case_context: str
+    
+class LeadGenerateRequest(BaseModel):
+    person_id: Optional[str] = None
+    case_id: Optional[str] = None
+    
+class ExplainRequest(BaseModel):
+    feature_name: str
+    feature_value: Any
+    direction: str
+    person_id: str

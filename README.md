@@ -4,8 +4,6 @@
 
 ## AI-Powered Criminal Network Analysis System
 
-**Smart India Hackathon — Problem Statement 26189**
-
 > **From fragmented crime records to connected, explainable investigation intelligence.**
 
 </div>

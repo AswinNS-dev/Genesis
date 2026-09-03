@@ -17,5 +17,4 @@ except ImportError:
     app = None
     create_application = None
     __all__ = []
-
 __version__ = "1.0.0"

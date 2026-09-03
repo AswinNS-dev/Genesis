@@ -29,6 +29,7 @@ def init_db():
         print(f"[DB] Notice during table synchronization: {e}")
 
 def get_db():
+    init_db()
     db = SessionLocal()
     try:
         yield db

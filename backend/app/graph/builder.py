@@ -24,10 +24,7 @@ RELATION_COLORS = {
 }
 
 class NetworkGraphBuilder:
-    def build_network(self, db: Session) -> Dict[str, Any]:
-        entities = db.query(Entity).all()
-        rels = db.query(Relationship).all()
-
+    def _build_from_data(self, entities: List[Any], rels: List[Any]) -> Dict[str, Any]:
         nodes = [
             {
                 "id": e.id,
@@ -52,3 +49,8 @@ class NetworkGraphBuilder:
         ]
 
         return {"nodes": nodes, "links": links}
+
+    def build_network(self, db: Session) -> Dict[str, Any]:
+        entities = db.query(Entity).all()
+        rels = db.query(Relationship).all()
+        return self._build_from_data(entities, rels)

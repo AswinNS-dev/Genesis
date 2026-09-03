@@ -7,6 +7,9 @@ from backend.app.database.repositories.analysis_repository import AnalysisReposi
 from backend.app.database.repositories.entity_repository import EntityRepository
 from backend.app.intelligence.ner.service import ner_service
 from backend.app.intelligence.entity_resolution.resolver import entity_resolution_service
+from backend.app.intelligence.relationship_detection.service import RelationshipDetectionService
+from backend.app.intelligence.anomaly_detection.communication import CommunicationAnomalyDetector
+from backend.app.intelligence.anomaly_detection.transaction import TransactionAnomalyDetector
 from backend.app.intelligence.location_analysis.features import build_features
 from backend.app.intelligence.location_analysis.anomaly_model import LocationAnomalyModel
 from backend.app.intelligence.summarizer.model import InvestigationSummarizer
@@ -126,22 +129,21 @@ class IntelligenceController:
                 explanation=f"Processed resolution for {len(results)} entities against database registry."
             )
 
-            for r in results:
-                if r.get("matched_entity_id"):
-                    self.analysis_repo.save_entity_match(
-                        entity_a_id=r["matched_entity_id"],
-                        entity_b_id=r["matched_entity_id"],
-                        confidence=int(r["confidence"] * 100),
-                        reasons=r.get("explanation", "Match detected by resolver"),
-                        status="PENDING" if r.get("requires_review") else "APPROVED"
-                    )
-
         return results
 
     def update_match_status(self, match_id: str, status_value: str) -> Optional[Any]:
         if not self.analysis_repo:
             return None
         return self.analysis_repo.update_entity_match_status(match_id, status_value)
+
+    def extract_relationships(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return RelationshipDetectionService().detect_relationships(events)
+
+    def detect_communication_anomalies(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return CommunicationAnomalyDetector().detect(records)
+
+    def detect_transaction_anomalies(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return TransactionAnomalyDetector().detect(records)
 
     def list_matches(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if not self.analysis_repo:
@@ -189,17 +191,75 @@ class IntelligenceController:
         model = get_lead_model()
         features = get_lead_features("data/raw")
         if features.empty:
-            return []
+            return self._generate_demo_case_leads(person_id=person_id, case_id=case_id)
 
         if person_id:
             features = features[(features["p1"] == person_id) | (features["p2"] == person_id)]
 
+        if case_id and "case_ids" in features.columns:
+            case_keys = {str(case_id)}
+            try:
+                from backend.app.database.supabase_service import supabase_db
+                case = supabase_db.get_case_by_id(str(case_id))
+                if case:
+                    case_keys.update({str(case.get("id")), str(case.get("caseId"))})
+            except Exception:
+                pass
+            features = features[
+                features["case_ids"].apply(
+                    lambda values: bool(case_keys.intersection({str(v) for v in values}))
+                    if isinstance(values, list)
+                    else any(key in str(values) for key in case_keys)
+                )
+            ]
+
         if features.empty:
-            return []
+            return self._generate_demo_case_leads(person_id=person_id, case_id=case_id)
 
         res = model.predict(features)
         leads = res[res["priority_score"] > 0.4].sort_values(by="priority_score", ascending=False)
         return leads.to_dict(orient="records")
+
+    def _generate_demo_case_leads(
+        self,
+        person_id: Optional[str] = None,
+        case_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        if not case_id:
+            return []
+        try:
+            from backend.app.database.supabase_service import supabase_db
+            if not supabase_db._is_demo_case(case_id):
+                return []
+            graph = supabase_db.get_network_graph(case_id)
+        except Exception:
+            return []
+
+        relationships = []
+        for edge in graph.get("edges", []):
+            if person_id and person_id not in (edge.get("source"), edge.get("target")):
+                continue
+            strength = float(edge.get("strength") or 50)
+            rel_type = str(edge.get("type") or "")
+            is_transaction = 1 if rel_type == "TRANSACTED_WITH" else 0
+            is_communication = 1 if rel_type == "COMMUNICATED_WITH" else 0
+            relationships.append({
+                "p1": edge.get("source"),
+                "p2": edge.get("target"),
+                "communication_frequency": 2 + is_communication,
+                "average_call_duration": 380 if is_communication else 0,
+                "transaction_count": 1 + is_transaction,
+                "total_amount": 250000 if is_transaction else 0,
+                "average_amount": 250000 if is_transaction else 0,
+                "shared_case_count": 1,
+                "evidence_count": 2,
+                "multi_source_support": 2 if rel_type in ("TRANSACTED_WITH", "COMMUNICATED_WITH") else 1,
+                "priority_score": round(min(0.98, 0.45 + strength / 180.0), 3),
+                "priority_band": "HIGH" if strength >= 80 else "MEDIUM",
+                "case_ids": [case_id],
+                "reason": f"Demo lead from {rel_type or 'case'} relationship with {int(strength)}% strength.",
+            })
+        return sorted(relationships, key=lambda item: item["priority_score"], reverse=True)[:12]
 
     def explain_feature_contribution(
         self,
@@ -217,14 +277,30 @@ class IntelligenceController:
 
     @staticmethod
     def get_service_health() -> Dict[str, Any]:
+        transformer_available = False
+        try:
+            import transformers  # noqa: F401
+            transformer_available = bool(os.path.isdir("backend/app/intelligence/models/ner")) and any(os.scandir("backend/app/intelligence/models/ner"))
+        except Exception:
+            pass
         return {
             "status": "healthy",
             "service": "crimeintel-intelligence-ml",
             "models": {
-                "ner": "active",
+                "ner": "transformer" if transformer_available else "rule_based_fallback",
                 "entity_resolution": "active",
-                "location_analysis": "active",
-                "summarizer": "active",
-                "lead_generator": "active"
-            }
+                "relationship_extraction": "active",
+                "graph_analysis": "active",
+                "communication_analysis": "active",
+                "transaction_analysis": "active",
+                "communication_anomaly": "active",
+                "transaction_anomaly": "active",
+                "temporal_detection": "active",
+                "location_analysis": "csv_backed_model",
+                "summarizer": "model_or_fallback",
+                "lead_generator": "csv_backed_model",
+                "explainability": "active"
+            },
+            "persistence": "sqlalchemy_database_for_ner_and_resolution",
+            "data_source": "local_csv_for_location_and_lead_models"
         }

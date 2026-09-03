@@ -14,6 +14,7 @@ import {
   Clock,
   Share2,
   GitCompare,
+  BookUser,
   type LucideIcon,
 } from "lucide-react";
 
@@ -131,6 +132,12 @@ export const navGroups: NavGroup[] = [
         href: "/reports",
         icon: FileText,
         description: "Structured investigation reports",
+      },
+      {
+        title: "Dossier",
+        href: "/dossier",
+        icon: BookUser,
+        description: "Full entity investigation dossier",
       },
     ],
   },

@@ -18,7 +18,7 @@ for p in env_paths:
 class Settings(BaseSettings):
     APP_NAME: str = "CrimeIntel"
     VERSION: str = "1.0.0"
-    SECRET_KEY: str = "crimeintel-secret-key-change-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 

@@ -53,6 +53,7 @@ def extract_lead_candidates(calls, trans, vehicles, master):
         transaction_count=('is_tx', 'sum'),
         total_amount=('amount', 'sum'),
         shared_case_count=('case_id', 'nunique'),
+        case_ids=('case_id', lambda values: sorted({str(v) for v in values.dropna() if str(v).strip()})),
         evidence_count=('source', 'count'),
         multi_source_support=('source', 'nunique')
     ).reset_index()

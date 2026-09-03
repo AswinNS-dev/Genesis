@@ -1,7 +1,7 @@
 import os
-import requests
+import httpx
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from backend.app.config.settings import settings
 
 class SupabaseService:
@@ -11,16 +11,12 @@ class SupabaseService:
     """
     def __init__(self):
         url = (settings.SUPABASE_URL or os.getenv("SUPABASE_URL") or "").strip()
-        if not url or not url.startswith("http"):
-            url = "https://ktzzlqekrycezqtghhpt.supabase.co"
-        self.url = url.rstrip("/")
+        self.url = url.rstrip("/") if url.startswith("http") else ""
 
         key = (settings.SUPABASE_SERVICE_ROLE_KEY or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
-        if not key or len(key) < 20:
-            key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMxODM2NSwiZXhwIjoyMTAzODk0MzY1fQ.SlUga2TMUyjfBQC2Ds4SgGvB0mpBIEAhZP0mgdKPcwg"
-        self.key = key
+        self.key = key if len(key) >= 20 else ""
 
-        self.session = requests.Session()
+        self.session = httpx.Client(timeout=10.0)
         self.session.headers.update({
             "apikey": self.key,
             "Authorization": f"Bearer {self.key}",
@@ -28,6 +24,8 @@ class SupabaseService:
         })
 
     def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, count_exact: bool = False) -> Any:
+        if not self.url or not self.key:
+            return [] if not count_exact else (0, [])
         headers = {}
         if count_exact:
             headers["Prefer"] = "count=exact"
@@ -173,25 +171,101 @@ class SupabaseService:
                 })
 
         return {
-            "total_cases": counts.get("total_cases") or 938,
-            "active_cases": counts.get("active_cases") or 724,
-            "total_entities": counts.get("total_entities") or 100000,
-            "communications": counts.get("communications") or 50000,
-            "transactions": counts.get("transactions") or 30000,
-            "vehicles": counts.get("vehicles") or 10000,
-            "criminal_records": counts.get("criminal_records") or 5000,
-            "location_events": counts.get("location_events") or 50000,
-            "evidence_documents": counts.get("evidence_documents") or 1000,
-            "evidence_items": counts.get("evidence_documents") or 1000,
-            "entity_aliases": counts.get("entity_aliases") or 5000,
+            "total_cases": counts.get("total_cases", 0),
+            "active_cases": counts.get("active_cases", 0),
+            "total_entities": counts.get("total_entities", 0),
+            "communications": counts.get("communications", 0),
+            "transactions": counts.get("transactions", 0),
+            "vehicles": counts.get("vehicles", 0),
+            "criminal_records": counts.get("criminal_records", 0),
+            "location_events": counts.get("location_events", 0),
+            "evidence_documents": counts.get("evidence_documents", 0),
+            "evidence_items": counts.get("evidence_documents", 0),
+            "entity_aliases": counts.get("entity_aliases", 0),
             "recent_activities": activities,
             "hotspots": hotspots,
-            "ai_analyses": 284,
-            "pending_matches": 42,
-            "alerts": 12
+            "ai_analyses": 0,
+            "pending_matches": 0,
+            "alerts": 0
         }
 
     # --- Cases Management ---
+    def _demo_case_catalog(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": "FIR-DEMO-1001",
+                "caseId": "CR-2026-1001",
+                "title": "Financial Fraud - Coimbatore",
+                "description": "Synthetic live-style intelligence case: mule accounts, staged vendor payments, call bursts, vehicle movement, and bank-branch location signals.",
+                "status": "UNDER_INVESTIGATION",
+                "classification": "RESTRICTED",
+                "category": "Financial Fraud",
+                "jurisdiction": "Coimbatore, Tamil Nadu",
+                "assignedInvestigator": "Insp. Kavitha Raman",
+                "incidentDate": "2026-08-30T10:30:00+00:00",
+                "createdAt": "2026-08-30T09:10:00+00:00",
+                "updatedAt": "2026-08-30T12:20:00+00:00",
+                "entityCount": 5,
+                "documentCount": 3,
+                "accusedName": "Arun Prakash",
+                "victimName": "Kovai Textile Merchants Association",
+                "policeStation": "Coimbatore Cyber Crime PS",
+                "courtName": "Coimbatore District Court",
+                "ipcSections": "IPC 420, IPC 468, IPC 471, IT Act 66D",
+                "courtStatus": "Investigation",
+                "bailStatus": "Not Applicable",
+                "riskScore": 91,
+            },
+            {
+                "id": "FIR-DEMO-1002",
+                "caseId": "CR-2026-1002",
+                "title": "UPI Mule Ring - Madurai",
+                "description": "Synthetic live-style intelligence case: repeated low-value UPI splits, common device usage, late-night coordination, and shared cash-out locations.",
+                "status": "UNDER_INVESTIGATION",
+                "classification": "RESTRICTED",
+                "category": "Cyber Financial Fraud",
+                "jurisdiction": "Madurai, Tamil Nadu",
+                "assignedInvestigator": "SI Arvind S.",
+                "incidentDate": "2026-08-31T14:15:00+00:00",
+                "createdAt": "2026-08-31T13:45:00+00:00",
+                "updatedAt": "2026-08-31T16:10:00+00:00",
+                "entityCount": 5,
+                "documentCount": 2,
+                "accusedName": "Naveen Rao",
+                "victimName": "State Bank Customer Cluster",
+                "policeStation": "Madurai Cyber Crime PS",
+                "courtName": "Madurai District Court",
+                "ipcSections": "IPC 420, IPC 120B, IT Act 66C, IT Act 66D",
+                "courtStatus": "Investigation",
+                "bailStatus": "Pending",
+                "riskScore": 86,
+            },
+            {
+                "id": "FIR-DEMO-1003",
+                "caseId": "CR-2026-1003",
+                "title": "Loan App Extortion - Chennai",
+                "description": "Synthetic live-style intelligence case: caller clusters, payment pressure pattern, shared office location, and device-linked operators.",
+                "status": "UNDER_INVESTIGATION",
+                "classification": "CONFIDENTIAL",
+                "category": "Digital Extortion",
+                "jurisdiction": "Chennai, Tamil Nadu",
+                "assignedInvestigator": "DSP Meera Joseph",
+                "incidentDate": "2026-09-01T11:00:00+00:00",
+                "createdAt": "2026-09-01T10:25:00+00:00",
+                "updatedAt": "2026-09-01T15:30:00+00:00",
+                "entityCount": 5,
+                "documentCount": 4,
+                "accusedName": "Pranav Iyer",
+                "victimName": "Multiple Complainants",
+                "policeStation": "Chennai Central Cyber Crime PS",
+                "courtName": "Chennai Metropolitan Magistrate Court",
+                "ipcSections": "IPC 384, IPC 420, IT Act 66E, IT Act 67",
+                "courtStatus": "Investigation",
+                "bailStatus": "Not Filed",
+                "riskScore": 89,
+            },
+        ]
+
     def list_cases(self, limit: int = 100, offset: int = 0, status: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
         params = {
             "limit": limit,
@@ -219,6 +293,7 @@ class SupabaseService:
                 "category": r.get("crime_type") or "General Crime",
                 "jurisdiction": f"{r.get('jurisdiction_city', '')}, {r.get('jurisdiction_state', '')}".strip(", "),
                 "assignedInvestigator": r.get("officer_in_charge") or "Officer Priya Singh",
+                "incidentDate": r.get("date_of_incident"),
                 "createdAt": r.get("date_of_filing") or r.get("date_of_incident") or "2024-01-01",
                 "updatedAt": r.get("date_of_incident") or "2024-01-01",
                 "entityCount": 4,
@@ -232,6 +307,17 @@ class SupabaseService:
                 "bailStatus": r.get("bail_status") or "Pending",
                 "riskScore": int(float(r.get("risk_score") or 5) * 10)
             })
+        existing_ids = {str(c.get("id")) for c in cases} | {str(c.get("caseId")) for c in cases}
+        for demo_case in self._demo_case_catalog():
+            if demo_case["id"] in existing_ids or demo_case["caseId"] in existing_ids:
+                continue
+            if status and status.upper() != "ALL" and status.upper() not in demo_case["status"]:
+                continue
+            if search:
+                haystack = " ".join(str(v) for v in demo_case.values()).lower()
+                if search.lower() not in haystack:
+                    continue
+            cases.append(demo_case)
         return cases
 
     def create_case(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -338,6 +424,7 @@ class SupabaseService:
                 "category": r.get("crime_type") or "General Crime",
                 "jurisdiction": f"{r.get('jurisdiction_city', '')}, {r.get('jurisdiction_state', '')}".strip(", "),
                 "assignedInvestigator": r.get("officer_in_charge") or "Officer Priya Singh",
+                "incidentDate": r.get("date_of_incident"),
                 "createdAt": r.get("date_of_filing") or r.get("date_of_incident") or "2024-01-01",
                 "updatedAt": r.get("date_of_incident") or "2024-01-01",
                 "accusedName": r.get("accused_name") or "Under Investigation",
@@ -346,6 +433,9 @@ class SupabaseService:
                 "bailStatus": r.get("bail_status") or "Pending",
                 "riskScore": int(float(r.get("risk_score") or 5) * 10)
             }
+        for demo_case in self._demo_case_catalog():
+            if clean_id in (demo_case["id"], demo_case["caseId"]):
+                return demo_case
         return None
 
     def get_case_summary_stats(self, case_id: str) -> Dict[str, Any]:
@@ -391,48 +481,183 @@ class SupabaseService:
         }
 
     # --- Case Sub-Resources ---
+    def _case_filter(self, case_id: str) -> str:
+        case = self.get_case_by_id(case_id)
+        identifiers = {str(case_id)}
+        if case:
+            identifiers.update({str(case.get("id")), str(case.get("caseId"))})
+        identifiers = [value for value in identifiers if value and value != "None"]
+        return "(" + ",".join(f"case_id.eq.{value}" for value in identifiers) + ")"
+
+    def _is_demo_case(self, case_id: Optional[str]) -> bool:
+        if not case_id:
+            return False
+        clean_id = str(case_id).strip()
+        for demo_case in self._demo_case_catalog():
+            if clean_id in (demo_case["id"], demo_case["caseId"]):
+                return True
+        return False
+
+    def _demo_base_time(self, case_id: str) -> datetime:
+        case = self.get_case_by_id(case_id)
+        reference = (case or {}).get("incidentDate") or (case or {}).get("createdAt") or "2026-08-30"
+        try:
+            parsed = datetime.fromisoformat(str(reference).replace("Z", "+00:00"))
+        except Exception:
+            parsed = datetime(2026, 8, 30, tzinfo=timezone.utc)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.replace(hour=10, minute=30, second=0, microsecond=0)
+
+    def _demo_case_rows(self, kind: str, case_id: str) -> List[Dict[str, Any]]:
+        """
+        Demo target cases are shown when Supabase has no linked intelligence
+        rows for the selected FIR/case number. They keep the analysis screens
+        populated without writing synthetic data into the live database.
+        """
+        case = self.get_case_by_id(case_id) or {}
+        case_key = str(case.get("caseId") or case_id)
+        profiles = {
+            "CR-2026-1001": {
+                "prefix": "CBE",
+                "city": "Coimbatore",
+                "state": "Tamil Nadu",
+                "plate": "TN-38-AX-2201",
+                "org": "Kovai Trade Services",
+                "names": ["Arun Prakash", "Meena Krishnan", "Suresh Varma", "Karthik Menon", "Lakshmi Finance Mule"],
+                "locations": ["RS Puram ATM Kiosk", "Gandhipuram Bus Stand", "Peelamedu IT Park Gate", "Singanallur Banking Cluster", "Ukkadam Market Exit"],
+                "banks": ["SBI", "Canara Bank", "HDFC", "ICICI", "Axis Bank"],
+                "amounts": [275000, 495000, 72000, 610000],
+                "coords": [(11.0081, 76.9558), (11.0183, 76.9674), (11.0264, 77.0123), (11.0008, 77.0262), (10.9901, 76.9657)],
+            },
+            "CR-2026-1002": {
+                "prefix": "MDU",
+                "city": "Madurai",
+                "state": "Tamil Nadu",
+                "plate": "TN-58-BQ-4190",
+                "org": "Vaigai Payment Services",
+                "names": ["Naveen Rao", "Divya Sekar", "Hari Natarajan", "Priya Menon", "Temple City Mule Account"],
+                "locations": ["Anna Nagar ATM", "Mattuthavani Bus Stand", "KK Nagar Mobile Shop", "Tallakulam Bank Street", "Periyar Market Exit"],
+                "banks": ["Indian Bank", "SBI", "IDFC", "Federal Bank", "Axis Bank"],
+                "amounts": [315000, 242000, 64000, 388000],
+                "coords": [(9.9252, 78.1198), (9.9516, 78.1621), (9.9349, 78.1426), (9.9391, 78.1319), (9.9195, 78.1193)],
+            },
+            "CR-2026-1003": {
+                "prefix": "MAA",
+                "city": "Chennai",
+                "state": "Tamil Nadu",
+                "plate": "TN-09-CX-8044",
+                "org": "Northline Recovery Desk",
+                "names": ["Pranav Iyer", "Anitha Paul", "Sameer Khan", "Rohit Balan", "Recovery Wallet Cluster"],
+                "locations": ["T Nagar Shared Office", "Koyambedu Bus Terminal", "Guindy Metro Exit", "Velachery Cash Point", "Parrys Corner Lodge"],
+                "banks": ["HDFC", "Kotak", "ICICI", "Yes Bank", "AU Bank"],
+                "amounts": [225000, 540000, 88000, 430000],
+                "coords": [(13.0418, 80.2341), (13.0694, 80.1948), (13.0067, 80.2206), (12.9756, 80.2207), (13.0889, 80.2902)],
+            },
+        }
+        profile = profiles.get(case_key, profiles["CR-2026-1001"])
+        prefix = profile["prefix"]
+        city = profile["city"]
+        state = profile["state"]
+        names = profile["names"]
+        locations = profile["locations"]
+        banks = profile["banks"]
+        amounts = profile["amounts"]
+        coords = profile["coords"]
+        person_ids = [f"P-{prefix}-{index:03d}" for index in range(1, 6)]
+        phone_numbers = [f"+91-98765-{10000 + index}" for index in range(1, 6)]
+        base = self._demo_base_time(case_id)
+        ts = lambda minutes: (base + timedelta(minutes=minutes)).isoformat()
+        if kind == "entities":
+            return [
+                {"record_id": f"DEMO-{prefix}-ENT-001", "person_id": person_ids[0], "person_name": names[0], "event_type": "PERSON", "phone_number": phone_numbers[0], "location_id": f"L-{prefix}-01", "location": locations[0], "organization_id": f"O-{prefix}-01", "organization": profile["org"], "risk_score": 91, "case_id": case_key},
+                {"record_id": f"DEMO-{prefix}-ENT-002", "person_id": person_ids[1], "person_name": names[1], "event_type": "PERSON", "phone_number": phone_numbers[1], "location_id": f"L-{prefix}-02", "location": locations[1], "risk_score": 78, "case_id": case_key},
+                {"record_id": f"DEMO-{prefix}-ENT-003", "person_id": person_ids[2], "person_name": names[2], "event_type": "PERSON", "phone_number": phone_numbers[2], "vehicle_plate": profile["plate"], "location_id": f"L-{prefix}-03", "location": locations[2], "risk_score": 84, "case_id": case_key},
+                {"record_id": f"DEMO-{prefix}-ENT-004", "person_id": person_ids[3], "person_name": names[3], "event_type": "PERSON", "phone_number": phone_numbers[3], "location_id": f"L-{prefix}-04", "location": locations[3], "risk_score": 66, "case_id": case_key},
+                {"record_id": f"DEMO-{prefix}-ENT-005", "person_id": person_ids[4], "person_name": names[4], "event_type": "ACCOUNT", "phone_number": phone_numbers[4], "location_id": f"L-{prefix}-05", "location": locations[4], "risk_score": 88, "case_id": case_key},
+            ]
+        if kind == "calls":
+            return [
+                {"cdr_id": f"DEMO-{prefix}-CALL-001", "caller_id": person_ids[0], "caller_name": names[0], "caller_number": phone_numbers[0], "callee_id": person_ids[1], "callee_name": names[1], "callee_number": phone_numbers[1], "call_datetime": ts(-95), "duration_seconds": 642, "call_type": "VOICE_CALL", "cell_tower_city": f"{locations[0]} Tower", "flagged": True, "case_id": case_key},
+                {"cdr_id": f"DEMO-{prefix}-CALL-002", "caller_id": person_ids[1], "caller_name": names[1], "caller_number": phone_numbers[1], "callee_id": person_ids[2], "callee_name": names[2], "callee_number": phone_numbers[2], "call_datetime": ts(-74), "duration_seconds": 118, "call_type": "VOICE_CALL", "cell_tower_city": f"{locations[2]} Tower", "flagged": False, "case_id": case_key},
+                {"cdr_id": f"DEMO-{prefix}-CALL-003", "caller_id": person_ids[0], "caller_name": names[0], "caller_number": phone_numbers[0], "callee_id": person_ids[3], "callee_name": names[3], "callee_number": phone_numbers[3], "call_datetime": ts(-52), "duration_seconds": 37, "call_type": "MISSED_CALL", "cell_tower_city": f"{locations[4]} Tower", "flagged": False, "case_id": case_key},
+                {"cdr_id": f"DEMO-{prefix}-CALL-004", "caller_id": person_ids[2], "caller_name": names[2], "caller_number": phone_numbers[2], "callee_id": person_ids[4], "callee_name": names[4], "callee_number": phone_numbers[4], "call_datetime": ts(-35), "duration_seconds": 904, "call_type": "VOICE_CALL", "cell_tower_city": f"{locations[3]} Tower", "flagged": True, "case_id": case_key},
+                {"cdr_id": f"DEMO-{prefix}-CALL-005", "caller_id": person_ids[3], "caller_name": names[3], "caller_number": phone_numbers[3], "callee_id": person_ids[0], "callee_name": names[0], "callee_number": phone_numbers[0], "call_datetime": ts(18), "duration_seconds": 221, "call_type": "VOICE_CALL", "cell_tower_city": f"{locations[1]} Tower", "flagged": False, "case_id": case_key},
+                {"cdr_id": f"DEMO-{prefix}-CALL-006", "caller_id": person_ids[4], "caller_name": names[4], "caller_number": phone_numbers[4], "callee_id": person_ids[1], "callee_name": names[1], "callee_number": phone_numbers[1], "call_datetime": ts(31), "duration_seconds": 486, "call_type": "VOICE_CALL", "cell_tower_city": f"{locations[0]} Tower", "flagged": True, "case_id": case_key},
+            ]
+        if kind == "transactions":
+            return [
+                {"txn_id": f"DEMO-{prefix}-TXN-001", "sender_id": person_ids[0], "sender_name": names[0], "sender_bank": banks[0], "receiver_id": person_ids[4], "receiver_name": names[4], "receiver_bank": banks[4], "amount_inr": amounts[0], "transaction_datetime": ts(-42), "transaction_type": "UPI_SPLIT", "purpose": "Layered invoice settlement", "suspicious_flag": True, "case_id": case_key},
+                {"txn_id": f"DEMO-{prefix}-TXN-002", "sender_id": person_ids[4], "sender_name": names[4], "sender_bank": banks[4], "receiver_id": person_ids[2], "receiver_name": names[2], "receiver_bank": banks[2], "amount_inr": amounts[1], "transaction_datetime": ts(-21), "transaction_type": "IMPS", "purpose": "Cash-out staging", "suspicious_flag": True, "case_id": case_key},
+                {"txn_id": f"DEMO-{prefix}-TXN-003", "sender_id": person_ids[1], "sender_name": names[1], "sender_bank": banks[1], "receiver_id": person_ids[3], "receiver_name": names[3], "receiver_bank": banks[3], "amount_inr": amounts[2], "transaction_datetime": ts(12), "transaction_type": "NEFT", "purpose": "Courier advance", "suspicious_flag": False, "case_id": case_key},
+                {"txn_id": f"DEMO-{prefix}-TXN-004", "sender_id": person_ids[2], "sender_name": names[2], "sender_bank": banks[2], "receiver_id": f"O-{prefix}-01", "receiver_name": profile["org"], "receiver_bank": "Federal Bank", "amount_inr": amounts[3], "transaction_datetime": ts(47), "transaction_type": "RTGS", "purpose": "False vendor payment", "suspicious_flag": True, "case_id": case_key},
+            ]
+        if kind == "locations":
+            return [
+                {"event_id": f"DEMO-{prefix}-LOC-001", "person_id": person_ids[0], "person_name": names[0], "event_datetime": ts(-110), "event_type": "ATM_CCTV", "location_detail": locations[0], "city": city, "state": state, "latitude": coords[0][0], "longitude": coords[0][1], "source_system": "CCTV", "confidence_score": 0.92, "case_id": case_key},
+                {"event_id": f"DEMO-{prefix}-LOC-002", "person_id": person_ids[1], "person_name": names[1], "event_datetime": ts(-76), "event_type": "CELL_TOWER", "location_detail": locations[1], "city": city, "state": state, "latitude": coords[1][0], "longitude": coords[1][1], "source_system": "CDR", "confidence_score": 0.86, "case_id": case_key},
+                {"event_id": f"DEMO-{prefix}-LOC-003", "person_id": person_ids[2], "person_name": names[2], "event_datetime": ts(-29), "event_type": "VEHICLE_SCAN", "location_detail": locations[2], "city": city, "state": state, "latitude": coords[2][0], "longitude": coords[2][1], "source_system": "ANPR", "confidence_score": 0.94, "case_id": case_key},
+                {"event_id": f"DEMO-{prefix}-LOC-004", "person_id": person_ids[4], "person_name": names[4], "event_datetime": ts(24), "event_type": "BRANCH_VISIT", "location_detail": locations[3], "city": city, "state": state, "latitude": coords[3][0], "longitude": coords[3][1], "source_system": "Bank KYC", "confidence_score": 0.81, "case_id": case_key},
+                {"event_id": f"DEMO-{prefix}-LOC-005", "person_id": person_ids[3], "person_name": names[3], "event_datetime": ts(63), "event_type": "MARKET_CCTV", "location_detail": locations[4], "city": city, "state": state, "latitude": coords[4][0], "longitude": coords[4][1], "source_system": "CCTV", "confidence_score": 0.78, "case_id": case_key},
+            ]
+        return []
+
     def get_case_communications(self, case_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        # Filter by case_id or return representative communications
-        rows = self._get("call_records", params={"limit": limit, "order": "call_datetime.desc.nullslast"})
+        rows = self._get("call_records", params={"limit": limit, "order": "call_datetime.desc.nullslast", "or": self._case_filter(case_id)})
         if not isinstance(rows, list):
-            return []
+            rows = []
+        if not rows and self._is_demo_case(case_id):
+            rows = self._demo_case_rows("calls", case_id)
         
         results = []
         for r in rows:
+            caller_name = r.get("caller_name") or r.get("caller_person_id") or "Unknown Caller"
+            callee_name = r.get("callee_name") or r.get("receiver_name") or r.get("receiver_person_id") or "Unknown Receiver"
+            caller_number = r.get("caller_number") or r.get("caller_phone") or ""
+            callee_number = r.get("callee_number") or r.get("receiver_phone") or ""
             results.append({
-                "id": str(r.get("cdr_id")),
-                "caller": f"{r.get('caller_name')} ({r.get('caller_number')})",
-                "receiver": f"{r.get('callee_name')} ({r.get('callee_number')})",
-                "duration": f"{r.get('duration_seconds', 0)}s",
+                "id": str(r.get("cdr_id") or r.get("call_id")),
+                "caller": f"{caller_name} ({caller_number})".strip(),
+                "receiver": f"{callee_name} ({callee_number})".strip(),
+                "callerName": caller_name,
+                "receiverName": callee_name,
+                "durationSec": int(r.get("duration_seconds") or 0),
                 "timestamp": r.get("call_datetime") or "2024-01-01",
                 "type": r.get("call_type") or "Voice Call",
-                "location": r.get("cell_tower_city") or "Tower Station",
-                "flagged": bool(r.get("flagged", False))
+                "cellTower": r.get("cell_tower_city") or r.get("cell_tower_location") or "Tower Station",
+                "isAnomaly": bool(r.get("flagged", False))
             })
         return results
 
     def get_case_transactions(self, case_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        rows = self._get("financial_transactions", params={"limit": limit, "order": "transaction_datetime.desc.nullslast"})
+        rows = self._get("financial_transactions", params={"limit": limit, "order": "transaction_datetime.desc.nullslast", "or": self._case_filter(case_id)})
         if not isinstance(rows, list):
-            return []
+            rows = []
+        if not rows and self._is_demo_case(case_id):
+            rows = self._demo_case_rows("transactions", case_id)
         
         results = []
         for r in rows:
+            sender_name = r.get("sender_name") or r.get("sender_person_id") or "Unknown Sender"
+            receiver_name = r.get("receiver_name") or r.get("receiver_person_id") or "Unknown Receiver"
             results.append({
-                "id": str(r.get("txn_id")),
-                "sender": f"{r.get('sender_name')} ({r.get('sender_bank', 'Bank')})",
-                "receiver": f"{r.get('receiver_name')} ({r.get('receiver_bank', 'Bank')})",
+                "id": str(r.get("txn_id") or r.get("transaction_id")),
+                "sender": f"{sender_name} ({r.get('sender_bank', r.get('sender_account_id', 'Bank'))})",
+                "receiver": f"{receiver_name} ({r.get('receiver_bank', r.get('receiver_account_id', 'Bank'))})",
                 "amount": float(r.get("amount_inr") or 0),
+                "currency": "INR",
                 "timestamp": r.get("transaction_datetime") or "2024-01-01",
-                "type": r.get("transaction_type") or "Transfer",
-                "suspicious": bool(r.get("suspicious_flag", False))
+                "transactionType": r.get("transaction_type") or "Transfer",
+                "isSuspicious": bool(r.get("suspicious_flag", False))
             })
         return results
 
     def get_case_locations(self, case_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        rows = self._get("location_events", params={"limit": limit, "order": "event_datetime.desc.nullslast"})
+        rows = self._get("location_events", params={"limit": limit, "order": "event_datetime.desc.nullslast", "or": self._case_filter(case_id)})
         if not isinstance(rows, list):
-            return []
+            rows = []
+        if not rows and self._is_demo_case(case_id):
+            rows = self._demo_case_rows("locations", case_id)
         
         results = []
         for r in rows:
@@ -441,6 +666,8 @@ class SupabaseService:
                 "name": f"{r.get('location_detail') or r.get('city')}",
                 "type": r.get("event_type") or "Location Ping",
                 "address": f"{r.get('city', '')}, {r.get('state', '')}".strip(", "),
+                "subjectName": r.get("person_name"),
+                "timestamp": r.get("event_datetime") or "2024-01-01",
                 "coordinates": f"{r.get('latitude', 0)}, {r.get('longitude', 0)}",
                 "firstSeen": r.get("event_datetime") or "2024-01-01",
                 "lastSeen": r.get("event_datetime") or "2024-01-01",
@@ -450,9 +677,17 @@ class SupabaseService:
 
     def get_case_timeline(self, case_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         # Aggregate real timestamped events from locations, calls, and transactions
-        locs = self._get("location_events", params={"limit": 10, "order": "event_datetime.desc.nullslast"})
-        calls = self._get("call_records", params={"limit": 10, "order": "call_datetime.desc.nullslast"})
-        txns = self._get("financial_transactions", params={"limit": 10, "order": "transaction_datetime.desc.nullslast"})
+        case_filter = {"or": self._case_filter(case_id)}
+        locs = self._get("location_events", params={**case_filter, "limit": limit, "order": "event_datetime.desc.nullslast"})
+        calls = self._get("call_records", params={**case_filter, "limit": limit, "order": "call_datetime.desc.nullslast"})
+        txns = self._get("financial_transactions", params={**case_filter, "limit": limit, "order": "transaction_datetime.desc.nullslast"})
+        if self._is_demo_case(case_id):
+            if not isinstance(locs, list) or not locs:
+                locs = self._demo_case_rows("locations", case_id)
+            if not isinstance(calls, list) or not calls:
+                calls = self._demo_case_rows("calls", case_id)
+            if not isinstance(txns, list) or not txns:
+                txns = self._demo_case_rows("transactions", case_id)
 
         events = []
         for l in (locs if isinstance(locs, list) else []):
@@ -466,18 +701,19 @@ class SupabaseService:
             })
         for c in (calls if isinstance(calls, list) else []):
             events.append({
-                "id": str(c.get("cdr_id")),
+                "id": str(c.get("cdr_id") or c.get("call_id")),
                 "type": "COMMUNICATION",
-                "summary": f"Call from {c.get('caller_name')} to {c.get('callee_name')}",
-                "detail": f"Duration: {c.get('duration_seconds')}s. Cell Tower: {c.get('cell_tower_city')}",
+                "summary": f"Call from {c.get('caller_name') or c.get('caller_person_id')} to {c.get('callee_name') or c.get('receiver_person_id')}",
+                "detail": f"Duration: {c.get('duration_seconds')}s. Cell Tower: {c.get('cell_tower_city') or c.get('cell_tower_location')}",
                 "eventAt": c.get("call_datetime") or "2024-01-01",
                 "createdAt": c.get("call_datetime") or "2024-01-01"
             })
         for t in (txns if isinstance(txns, list) else []):
+            amount = float(t.get("amount_inr") or 0)
             events.append({
-                "id": str(t.get("txn_id")),
+                "id": str(t.get("txn_id") or t.get("transaction_id")),
                 "type": "TRANSACTION",
-                "summary": f"Transaction of INR {t.get('amount_inr'):,.2f} from {t.get('sender_name')} to {t.get('receiver_name')}",
+                "summary": f"Transaction of INR {amount:,.2f} from {t.get('sender_name') or t.get('sender_person_id')} to {t.get('receiver_name') or t.get('receiver_person_id')}",
                 "detail": f"Type: {t.get('transaction_type')}. Purpose: {t.get('purpose')}",
                 "eventAt": t.get("transaction_datetime") or "2024-01-01",
                 "createdAt": t.get("transaction_datetime") or "2024-01-01"
@@ -626,8 +862,10 @@ class SupabaseService:
         # 1. Pull entities
         params = {"limit": max_nodes}
         if case_id:
-            params["case_id"] = f"eq.{case_id}"
+            params["or"] = self._case_filter(case_id)
         ent_rows = self._get("entities", params=params)
+        if (not isinstance(ent_rows, list) or not ent_rows) and self._is_demo_case(case_id):
+            ent_rows = self._demo_case_rows("entities", case_id)
 
         for r in (ent_rows if isinstance(ent_rows, list) else []):
             pid = str(r.get("person_id") or r.get("record_id"))
@@ -650,29 +888,39 @@ class SupabaseService:
                 nodes_dict[veh_id] = {"id": veh_id, "label": r.get("vehicle_plate"), "type": "VEHICLE", "riskScore": 30}
                 edges.append({"id": f"e-{pid}-{veh_id}", "source": pid, "target": veh_id, "type": "USES_VEHICLE", "strength": 2})
 
+            if r.get("organization"):
+                org_id = str(r.get("organization_id") or f"ORG-{r.get('organization')[:8]}")
+                nodes_dict[org_id] = {"id": org_id, "label": r.get("organization"), "type": "ORGANIZATION", "riskScore": 70}
+                edges.append({"id": f"e-{pid}-{org_id}", "source": pid, "target": org_id, "type": "ASSOCIATED_WITH", "strength": 68})
+
         # 2. Add Call relationships
-        calls = self._get("call_records", params={"limit": 30})
+        case_filter = {"or": self._case_filter(case_id)} if case_id else {}
+        calls = self._get("call_records", params={**case_filter, "limit": 30})
+        if (not isinstance(calls, list) or not calls) and self._is_demo_case(case_id):
+            calls = self._demo_case_rows("calls", case_id)
         for cl in (calls if isinstance(calls, list) else []):
-            c1 = str(cl.get("caller_id") or cl.get("caller_name"))
-            c2 = str(cl.get("callee_id") or cl.get("callee_name"))
+            c1 = str(cl.get("caller_id") or cl.get("caller_person_id") or cl.get("caller_name"))
+            c2 = str(cl.get("callee_id") or cl.get("receiver_person_id") or cl.get("callee_name") or cl.get("receiver_name"))
             if c1 and c2:
                 if c1 not in nodes_dict:
                     nodes_dict[c1] = {"id": c1, "label": cl.get("caller_name", c1), "type": "PERSON", "riskScore": 65}
                 if c2 not in nodes_dict:
-                    nodes_dict[c2] = {"id": c2, "label": cl.get("callee_name", c2), "type": "PERSON", "riskScore": 60}
-                edges.append({"id": f"call-{cl.get('cdr_id')}", "source": c1, "target": c2, "type": "COMMUNICATED_WITH", "strength": 3})
+                    nodes_dict[c2] = {"id": c2, "label": cl.get("callee_name") or cl.get("receiver_name") or c2, "type": "PERSON", "riskScore": 60}
+                edges.append({"id": f"call-{cl.get('cdr_id') or cl.get('call_id')}", "source": c1, "target": c2, "type": "COMMUNICATED_WITH", "label": cl.get("call_type") or "Call", "strength": 82 if cl.get("flagged") else 58})
 
         # 3. Add Transaction relationships
-        txns = self._get("financial_transactions", params={"limit": 20})
+        txns = self._get("financial_transactions", params={**case_filter, "limit": 20})
+        if (not isinstance(txns, list) or not txns) and self._is_demo_case(case_id):
+            txns = self._demo_case_rows("transactions", case_id)
         for tx in (txns if isinstance(txns, list) else []):
-            s1 = str(tx.get("sender_id") or tx.get("sender_name"))
-            r1 = str(tx.get("receiver_id") or tx.get("receiver_name"))
+            s1 = str(tx.get("sender_id") or tx.get("sender_person_id") or tx.get("sender_name"))
+            r1 = str(tx.get("receiver_id") or tx.get("receiver_person_id") or tx.get("receiver_name"))
             if s1 and r1:
                 if s1 not in nodes_dict:
                     nodes_dict[s1] = {"id": s1, "label": tx.get("sender_name", s1), "type": "PERSON", "riskScore": 75}
                 if r1 not in nodes_dict:
                     nodes_dict[r1] = {"id": r1, "label": tx.get("receiver_name", r1), "type": "PERSON", "riskScore": 70}
-                edges.append({"id": f"txn-{tx.get('txn_id')}", "source": s1, "target": r1, "type": "TRANSACTED_WITH", "strength": 4})
+                edges.append({"id": f"txn-{tx.get('txn_id') or tx.get('transaction_id')}", "source": s1, "target": r1, "type": "TRANSACTED_WITH", "label": tx.get("transaction_type") or "Transfer", "strength": 92 if tx.get("suspicious_flag") else 56})
 
         return {
             "nodes": list(nodes_dict.values())[:max_nodes],
@@ -687,10 +935,28 @@ class SupabaseService:
             "evidence_documents", "entity_aliases"
         ]
         counts = {}
+        reachable = False
+        error = None
+        if self.url and self.key:
+            try:
+                probe = self.session.get(
+                    f"{self.url}/rest/v1/entities",
+                    params={"select": "*", "limit": 1},
+                    timeout=10,
+                )
+                reachable = probe.status_code in (200, 206)
+                if not reachable:
+                    error = f"Supabase returned HTTP {probe.status_code}"
+            except Exception as exc:
+                error = str(exc)
         for t in tables:
             counts[t] = self.get_count(t)
+        configured = bool(self.url and self.key)
         return {
-            "status": "connected",
+            "status": "connected" if reachable else ("unreachable" if configured else "not_configured"),
+            "configured": configured,
+            "reachable": reachable,
+            "error": error,
             "supabase_url": self.url,
             "table_counts": counts,
             "timestamp": datetime.now(timezone.utc).isoformat()

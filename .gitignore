@@ -58,3 +58,5 @@ backend/app/intelligence/models/
 *.swo
 .DS_Store
 Thumbs.db
+backend/scripts/synthetic/env.json
+backend/scripts/synthetic/env.json

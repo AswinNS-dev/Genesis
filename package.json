@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev:all": "node scripts/dev.js",
-    "dev": "node scripts/dev.js",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "python run.py",
+    "dev": "cd frontend && npm run dev",
+    "dev:all": "concurrently -k -n backend,frontend \"py -3 -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm --prefix frontend run dev\"",
     "build": "cd frontend && npm run build",
-    "start": "node scripts/dev.js",
+    "start": "cd frontend && npm run preview",
+    "lint": "cd frontend && tsc --noEmit",
     "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
     "db:push": "prisma db push --schema backend/prisma/schema.prisma",
     "db:seed": "prisma db seed"

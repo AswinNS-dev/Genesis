@@ -32,7 +32,7 @@ class CaseRepository:
                     InvestigationCase.assignedInvestigator.ilike(term),
                 )
             )
-        rows = q.order_by(InvestigationCase.createdAt.desc()).all()
+        rows = q.order_by(InvestigationCase.createdAt.desc()).offset(offset).limit(limit).all()
         results = []
         for c in rows:
             results.append({

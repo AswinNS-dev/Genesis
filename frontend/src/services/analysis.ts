@@ -32,82 +32,6 @@ export interface EntityMatchRecord {
   createdAt?: string;
 }
 
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: string;
-  riskScore: number;
-  degree?: number;
-  degreeCentrality?: number;
-  betweenness?: number;
-  closeness?: number;
-  pagerank?: number;
-  communityId?: number;
-  x?: number;
-  y?: number;
-}
-
-export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  type: string;
-  label?: string;
-  strength: number;
-  count?: number;
-}
-
-export interface GraphStatistics {
-  totalNodes: number;
-  totalEdges: number;
-  density: number;
-  averageDegree: number;
-  connectedComponentsCount: number;
-  communitiesCount: number;
-  isolatedNodesCount: number;
-  diameterEstimate: number;
-}
-
-export interface GraphAnalysisData {
-  statistics: GraphStatistics;
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  communities: Array<{
-    id: number;
-    name: string;
-    color?: string;
-    size: number;
-    nodes: string[];
-  }>;
-  patterns: Array<{
-    id: string;
-    type: string;
-    title: string;
-    summary: string;
-    severity: string;
-    relevance: number;
-    entities: string[];
-  }>;
-  topInfluencers: Array<{
-    id: string;
-    name: string;
-    role?: string;
-    type: string;
-    pagerank: number;
-    betweenness: number;
-    degree: number;
-    riskScore: number;
-  }>;
-  topBridges: Array<{
-    source: string;
-    target: string;
-    sourceName?: string;
-    targetName?: string;
-    type: string;
-    betweennessImpact?: number;
-  }>;
-}
-
 export interface LocationAnomalyRecord {
   person_id?: string;
   location_id?: string;
@@ -164,18 +88,21 @@ export interface IntelligenceHealthResponse {
   status: string;
   service: string;
   models: Record<string, string>;
+  persistence?: string;
+  data_source?: string;
+}
+
+export interface SupabaseStatusResponse {
+  status: string;
+  configured: boolean;
+  reachable: boolean;
+  supabase_url: string;
+  table_counts: Record<string, number>;
+  timestamp: string;
+  error?: string | null;
 }
 
 export const analysisService = {
-  getGraphAnalysis: async (caseId?: string): Promise<GraphAnalysisData> => {
-    const query = caseId ? `?caseId=${encodeURIComponent(caseId)}` : '';
-    return apiRequest<GraphAnalysisData>(`/analysis/graph-analysis${query}`);
-  },
-
-  getGraph: async (): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> => {
-    return apiRequest<{ nodes: GraphNode[]; edges: GraphEdge[] }>('/analysis/graph');
-  },
-
   extractNER: async (text: string, caseId?: string): Promise<NERResult> => {
     const query = caseId ? `?caseId=${caseId}` : '';
     return apiRequest<NERResult>(`/intelligence/ner${query}`, {
@@ -251,6 +178,38 @@ export const analysisService = {
 
   getIntelligenceHealth: async (): Promise<IntelligenceHealthResponse> => {
     return apiRequest<IntelligenceHealthResponse>('/intelligence/health');
+  },
+
+  getSupabaseStatus: async (): Promise<SupabaseStatusResponse> => {
+    return apiRequest<SupabaseStatusResponse>('/debug/data-status');
+  },
+
+  extractRelationships: async (events: Array<Record<string, unknown>>) => {
+    return apiRequest<{ relationships: Array<Record<string, unknown>> }>('/intelligence/relationships/extract', {
+      method: 'POST',
+      body: JSON.stringify({ events }),
+    });
+  },
+
+  detectCommunicationAnomalies: async (records: Array<Record<string, unknown>>) => {
+    return apiRequest<{ anomalies: Array<Record<string, unknown>> }>('/intelligence/anomaly/communications', {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    });
+  },
+
+  detectTransactionAnomalies: async (records: Array<Record<string, unknown>>) => {
+    return apiRequest<{ anomalies: Array<Record<string, unknown>> }>('/intelligence/anomaly/transactions', {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    });
+  },
+
+  detectTemporalAnomalies: async (caseId: string) => {
+    return apiRequest<Record<string, unknown>>('/analysis/temporal', {
+      method: 'POST',
+      body: JSON.stringify({ caseId }),
+    });
   },
 
   findShortestPath: async (source: string, target: string) => {

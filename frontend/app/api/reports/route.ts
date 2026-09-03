@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@backend/lib/auth";
 import { reportService } from "@backend/services/report.service";
+import { prisma } from "@backend/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,15 @@ export async function GET(req: Request) {
       caseId,
       `${session.user.name ?? "investigator"} (${(session.user as { role?: string }).role ?? ""})`
     );
+    // Audit: report accessed
+    await prisma.auditLog.create({
+      data: {
+        userId: (session.user as { id?: string }).id,
+        action: "REPORT_ACCESSED",
+        detail: `Report accessed for case ${report.caseId}`,
+        status: "SUCCESS",
+      },
+    }).catch(() => { /* non-blocking */ });
     return NextResponse.json({ report });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Report generation failed";

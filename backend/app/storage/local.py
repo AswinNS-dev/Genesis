@@ -7,7 +7,8 @@ class LocalStorage:
         os.makedirs(self.upload_dir, exist_ok=True)
 
     def save(self, filename: str, content: bytes) -> str:
-        filepath = os.path.join(self.upload_dir, filename)
+        safe_filename = os.path.basename(filename).replace("..", "_")
+        filepath = os.path.join(self.upload_dir, safe_filename)
         with open(filepath, "wb") as f:
             f.write(content)
         return filepath

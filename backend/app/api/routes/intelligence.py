@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -65,6 +65,30 @@ def update_entity_match_status_endpoint(
     if not updated:
         raise HTTPException(status_code=404, detail="Entity match not found")
     return {"success": True, "id": updated.id, "status": updated.status}
+
+
+@router.post("/relationships/extract")
+def extract_relationships_endpoint(payload: Dict[str, Any]):
+    events = payload.get("events", [])
+    if not isinstance(events, list):
+        raise HTTPException(status_code=400, detail="events must be an array")
+    return {"relationships": IntelligenceController().extract_relationships(events)}
+
+
+@router.post("/anomaly/communications")
+def communication_anomaly_endpoint(payload: Dict[str, Any]):
+    records = payload.get("records", [])
+    if not isinstance(records, list):
+        raise HTTPException(status_code=400, detail="records must be an array")
+    return {"anomalies": IntelligenceController().detect_communication_anomalies(records)}
+
+
+@router.post("/anomaly/transactions")
+def transaction_anomaly_endpoint(payload: Dict[str, Any]):
+    records = payload.get("records", [])
+    if not isinstance(records, list):
+        raise HTTPException(status_code=400, detail="records must be an array")
+    return {"anomalies": IntelligenceController().detect_transaction_anomalies(records)}
 
 
 @router.get("/entity-matches", response_model=List[EntityMatchItem], summary="List entity matches requiring review")

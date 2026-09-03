@@ -20,7 +20,7 @@ from backend.app.api.routes import (
     datasets_router, analysis_router, evidence_router,
     blockchain_router, reports_router, search_router,
     intelligence_router, dashboard_router, debug_router,
-    audit_router, analytics_router
+    audit_router, analytics_router, locations_router
 )
 
 def create_application() -> FastAPI:
@@ -45,6 +45,7 @@ def create_application() -> FastAPI:
     app.include_router(datasets_router, prefix=api_prefix)
     app.include_router(analysis_router, prefix=api_prefix)
     app.include_router(analytics_router, prefix=api_prefix)
+    app.include_router(locations_router, prefix=api_prefix)
     app.include_router(evidence_router, prefix=api_prefix)
     app.include_router(blockchain_router, prefix=api_prefix)
     app.include_router(reports_router, prefix=api_prefix)

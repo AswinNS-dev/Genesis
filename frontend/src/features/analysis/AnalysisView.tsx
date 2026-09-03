@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { caseService, Case, TimelineEventItem, CommunicationItem, TransactionItem, LocationItem } from '../../services/cases';
 import { 
   analysisService, NERResult, EntityMatchRecord, 
@@ -17,6 +18,7 @@ import { EntityDetailCard } from './components/EntityDetailCard';
 import { CommunityClusterCards } from './components/CommunityClusterCards';
 
 export const AnalysisView: React.FC = () => {
+  const navigate = useNavigate();
   const [cases, setCases] = useState<Case[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<
@@ -382,6 +384,68 @@ export const AnalysisView: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : activeTab === 'locations' ? (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-sky-950/40 via-slate-900/60 to-slate-950 border border-sky-500/30 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold">
+                GEOGRAPHIC INVESTIGATION CAPABILITY
+              </span>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-rose-400" />
+                Case Hotspot & Regional Location Intelligence
+              </h3>
+              <p className="text-xs text-slate-400 max-w-xl">
+                Explore hierarchical state/district drill-downs, heatmaps, cluster markers, and incident-date correlation for this case.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/locations')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-sky-500/20 transition-all shrink-0"
+            >
+              <span>Launch Full Hotspot Analysis</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 font-mono">
+                <MapPin className="w-4 h-4 text-rose-400" />
+                Case Geolocation Telemetry Traces
+              </h3>
+              <span className="text-xs font-mono text-slate-400">{locations.length} recorded locations</span>
+            </div>
+            {locations.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 text-xs font-mono">
+                No location traces directly linked to this docket. Use the full Hotspot Analysis module to query cross-case regional activity.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-mono text-slate-300">
+                <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+                  <tr>
+                    <th className="p-3.5">Location Identifier</th>
+                    <th className="p-3.5">Observation Source / Type</th>
+                    <th className="p-3.5">Geographic Anchor</th>
+                    <th className="p-3.5">Coordinates</th>
+                    <th className="p-3.5">Activity Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {locations.map((l) => (
+                    <tr key={l.id} className="hover:bg-slate-900/60 transition-colors">
+                      <td className="p-3.5 text-white font-medium">{l.name}</td>
+                      <td className="p-3.5 text-slate-300">{l.type || 'Surveillance Trace'}</td>
+                      <td className="p-3.5 text-slate-400">{l.address || 'Jurisdiction Core'}</td>
+                      <td className="p-3.5 text-sky-400 font-mono text-[11px]">{l.coordinates || 'Derived'}</td>
+                      <td className="p-3.5 font-bold text-amber-400">{l.activityCount || 1} hits</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       ) : activeTab === 'ner' ? (
         <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">

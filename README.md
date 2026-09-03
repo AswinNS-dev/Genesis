@@ -1,26 +1,6 @@
 <div align="center">
 
 # 🛡️ CrimeIntel: AI-Powered Criminal Network Analysis System
-### *Smart India Hackathon (SIH) • Problem Statement ID: 26189*
-
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Supabase](https://img.shields.io/badge/Supabase-Cloud%20Postgres-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![Blockchain](https://img.shields.io/badge/Blockchain-SHA--256%20Vault-F7931A?style=for-the-badge&logo=blockchaindotcom&logoColor=white)](https://en.wikipedia.org/wiki/SHA-2)
-
-<p align="center">
-  <b>An automated, forensic-grade intelligence platform that synthesizes unstructured FIRs, call detail records (CDRs), financial transaction logs, and location scans into an interactive, explainable, and tamper-evident criminal network intelligence graph.</b>
-</p>
-
-[The Problem (PS 26189)](#-problem-statement-id-26189) • [The Proposed Solution](#-the-proposed-solution) • [How It Is Implemented](#-how-it-is-implemented) • [Architecture](#-system-architecture) • [Quickstart Guide](#-quickstart-guide) • [API Reference](#-core-api-reference)
-
-</div>
-
----
 
 ## 📌 Problem Statement (ID: 26189)
 

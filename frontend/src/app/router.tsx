@@ -14,6 +14,7 @@ import { ReportsView } from '../features/reports/ReportsView';
 import { SecurityView } from '../features/security/SecurityView';
 import { VisualizationsView } from '../features/visualizations/VisualizationsView';
 import { NetworkGraphView } from '../features/network-graph/NetworkGraphView';
+import { LocationAnalysisView } from '../features/locations/LocationAnalysisView';
 
 /**
  * Route guard requiring active authenticated session
@@ -69,6 +70,7 @@ export const AppRouter: React.FC = () => {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardView />} />
                   <Route path="/visualizations" element={<VisualizationsView />} />
+                  <Route path="/locations" element={<LocationAnalysisView />} />
                   <Route path="/network-graph" element={<NetworkGraphView />} />
                   <Route path="/cases" element={<CasesView />} />
                   <Route path="/entities" element={<EntitiesView />} />

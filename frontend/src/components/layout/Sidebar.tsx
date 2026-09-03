@@ -1,11 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Users, Network, ShieldCheck, Database, FileText, Lock, BarChart3, Share2 } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, Network, ShieldCheck, Database, FileText, Lock, BarChart3, Share2, MapPin } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const menu = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/visualizations', label: 'Visualizations & Insights', icon: BarChart3 },
+    { path: '/locations', label: 'Hotspot & Location Analysis', icon: MapPin },
     { path: '/network-graph', label: 'Criminal Network Graph', icon: Share2 },
     { path: '/cases', label: 'Case Management', icon: FolderKanban },
     { path: '/entities', label: 'Entity Registry', icon: Users },

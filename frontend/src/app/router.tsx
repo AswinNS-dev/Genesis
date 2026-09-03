@@ -12,6 +12,8 @@ import { DataWorkspaceView } from '../features/data-workspace/DataWorkspaceView'
 import { BlockchainView } from '../features/blockchain/BlockchainView';
 import { ReportsView } from '../features/reports/ReportsView';
 import { SecurityView } from '../features/security/SecurityView';
+import { VisualizationsView } from '../features/visualizations/VisualizationsView';
+import { NetworkGraphView } from '../features/network-graph/NetworkGraphView';
 
 /**
  * Route guard requiring active authenticated session
@@ -66,6 +68,8 @@ export const AppRouter: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardView />} />
+                  <Route path="/visualizations" element={<VisualizationsView />} />
+                  <Route path="/network-graph" element={<NetworkGraphView />} />
                   <Route path="/cases" element={<CasesView />} />
                   <Route path="/entities" element={<EntitiesView />} />
                   <Route path="/analysis" element={<AnalysisView />} />

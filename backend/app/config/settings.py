@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     ENTITY_REVIEW_THRESHOLD: float = 0.65
 
     # Cloud Storage & Database (Supabase)
-    SUPABASE_URL: Optional[str] = None
-    SUPABASE_ANON_KEY: Optional[str] = None
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://ktzzlqekrycezqtghhpt.supabase.co")
+    SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTgzNjUsImV4cCI6MjEwMzg5NDM2NX0.bbsh93pQPrSLezW_RlKfIar8GtQVcPodNvaJe19no-A")
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0enpscWVrcnljZXpxdGdoaHB0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODMxODM2NSwiZXhwIjoyMTAzODk0MzY1fQ.SlUga2TMUyjfBQC2Ds4SgGvB0mpBIEAhZP0mgdKPcwg")
     SUPABASE_STORAGE_BUCKET: str = "crimeintel-evidence"
     STORAGE_DRIVER: str = "local"
 

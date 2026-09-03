@@ -22,8 +22,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     # Import all models to ensure they are registered with Base metadata
-    import backend.app.database.models  # noqa
-    Base.metadata.create_all(bind=engine)
+    try:
+        import backend.app.database.models  # noqa
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"[DB] Notice during table synchronization: {e}")
 
 def get_db():
     init_db()

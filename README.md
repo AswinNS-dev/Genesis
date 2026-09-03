@@ -1,72 +1,104 @@
 <div align="center">
 
-# 🛡️ CrimeIntel Platform
-### *Enterprise AI-Assisted Criminal Investigation & Forensic Intelligence Engine*
+# 🛡️ CrimeIntel: AI-Powered Criminal Network Analysis System
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Supabase](https://img.shields.io/badge/Supabase-Cloud%20Postgres-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![Blockchain](https://img.shields.io/badge/Blockchain-SHA--256%20Vault-F7931A?style=for-the-badge&logo=blockchaindotcom&logoColor=white)](https://en.wikipedia.org/wiki/SHA-2)
+## 📌 Problem Statement (ID: 26189)
 
-<p align="center">
-  <b>A state-of-the-art forensic intelligence system designed for law enforcement agencies, cybercrime cells, and investigative officers to connect fragmented records, resolve identities across jurisdictions, and automate investigative reporting with end-to-end cryptographic auditability.</b>
-</p>
+### **Title:** AI-Powered Criminal Network Analysis System
 
-[Key Features](#-key-modules--features) • [System Architecture](#-system-architecture) • [AI Pipeline](#-unified-intelligence-pipeline) • [Quickstart Guide](#-quickstart-guide) • [API Reference](#-core-api-reference) • [Demo Credentials](#-pre-seeded-demo-credentials)
+### **Background & Challenges**
+Modern criminal operations are rarely isolated—they are increasingly organized, decentralized, and cross-jurisdictional. Criminal syndicates operate through loose networks of associates, front companies, proxies, and multi-layered communication and financial channels.
 
-</div>
+Law enforcement agencies collect enormous quantities of data from diverse sources:
+* 📄 **First Information Reports (FIRs)** and unstructured police case narratives
+* 📞 **Call Detail Records (CDRs)** and tower triangulation dumps
+* 💳 **Financial Transaction Records** (bank accounts, UPI, Hawala, cash structuring)
+* 📍 **Surveillance, Toll Scans & Location Logs** (ANPR, cell tower pings, GPS)
+* 🏛️ **Criminal History Databases & Court Dockets**
 
----
+### **The Critical Bottlenecks**
+1. **Data Fragmentation & Silos**: Information is distributed across incompatible databases, police stations, and government departments with no single source of truth.
+2. **Identity Obfuscation**: Suspects frequently alter name spellings (e.g., *Ramu Kumar* vs. *Ramesh Kumar*), swap burner SIMs, use shared family vehicles, or channel funds through shell entities.
+3. **Manual Analysis Fatigue**: Connecting thousands of CDR records, bank statements, and FIR narratives manually is painfully slow, labor-intensive, and prone to missing crucial cross-case links.
+4. **Lack of Evidentiary Auditability**: When analytical links are produced, investigators lack cryptographic provenance, making evidence susceptible to legal challenge in court.
 
-## 🌟 Executive Summary
-
-Modern law enforcement agencies face a severe intelligence silo problem: **suspects change names, swap SIM cards, operate shell companies, and move across state lines.** Critical evidence is scattered across call detail records (CDR), bank statements, toll scans, FIR registries, and handwritten police logs.
-
-**CrimeIntel** solves this by unifying cross-jurisdictional data through a **multi-stage AI pipeline** and **cryptographic governance layer**:
-1. **Multi-Signal Entity Resolution**: Deduplicates identities (e.g. *Ramu Kumar* ↔ *Ramesh Kumar*) using phonetics, DOB, shared telephone numbers, co-location pings, and proxy associations.
-2. **Interactive 360° Subject Dossiers**: Compiles full suspect profiles across 100,000+ records in milliseconds.
-3. **Automated FIR Investigation Reports**: Assembles court-admissible dossiers with chronological timelines, call graphs, transaction flows, and AI lead scoring.
-4. **Immutable Security & Audit Trail**: Cryptographically seals every investigator decision, access attempt, and evidence verification in an tamper-evident ledger.
-5. **Blockchain Evidence Vault**: Protects chain of custody with SHA-256 chained notarization.
+### **Core Objective**
+Develop an AI-powered system that automatically ingests structured and unstructured crime-related data to **uncover hidden networks**, **identify key influencers**, **detect anomalous behavioral patterns**, and **deliver actionable, court-admissible intelligence** for investigators.
 
 ---
 
-## 🚀 Key Modules & Features
+## 💡 The Proposed Solution
 
-### 1. 📂 Investigation Reports & Case Dossiers
-*Transform weeks of manual docket compilation into instant, court-ready intelligence briefings.*
-- **Automated Multi-Vector Aggregation**: Pulls case metadata, IPC sections, tracked entities, call logs, bank transfers, toll scans, and physical evidence into a unified view.
-- **Forensic Risk Scoring**: Color-coded risk indicators highlighting primary targets vs. secondary associates.
-- **Visual AI Evidence Seals**: Embedded multi-signal entity matching breakdowns showing match confidence (e.g. 91% match with supporting vs. counter-evidence).
-- **Export & Print Ready**: Browser-native print styling and JSON data export for inter-departmental distribution.
+**CrimeIntel** addresses every facet of Problem Statement 26189 by combining modern **Natural Language Processing (NLP)**, **Multi-Signal Entity Resolution**, **Graph Analytics**, **Machine Learning Anomaly Detection**, and **Cryptographic Governance**:
 
-### 2. 👤 360° Person & Entity Dossier
-*Full-spectrum suspect profiling queried directly from over 100,000 master entities.*
-- **Identifier Correlator**: Links primary names with street aliases, phone numbers, registered vehicles, and addresses.
-- **Linked FIR Cross-Search**: Uncovers related court dockets and criminal records filed across different police stations.
-- **Network Intelligence**: Interactive ego-network showing connected associates, relationship types (*CO_CONSPIRATOR*, *OPERATES_VEHICLE*, *DIRECTOR*), and tie strengths.
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   CRIMEINTEL SOLUTION MATRIX                                     │
+├──────────────────────────────┬──────────────────────────────────┬────────────────────────────────┤
+│ SIH Requirement (PS 26189)   │ CrimeIntel Capability            │ Core Technology Stack          │
+├──────────────────────────────┼──────────────────────────────────┼────────────────────────────────┤
+│ Multi-source Ingestion       │ Unified Forensic Data Workspace  │ FastAPI, Supabase, Pandas      │
+│ Entity Extraction            │ Automated Forensic NER Engine    │ DistilBERT Transformer         │
+│ Identity Resolution          │ Multi-Signal Link Resolver       │ Jaro-Winkler, Levenshtein, ML │
+│ Relationship Mapping         │ Dynamic Knowledge Graph          │ Force-Directed D3 Graph        │
+│ Key Influencer Discovery     │ Graph Centrality Metrics         │ PageRank, Betweenness, Degree  │
+│ Suspicious Pattern Detection │ Spatial-Temporal Anomaly Engine  │ IsolationForest, DBSCAN        │
+│ Lead Generation & Scoring    │ Cross-Case Association Ranker    │ XGBoost Ranker + SHAP Values   │
+│ Evidentiary Audit Trail      │ Immutable State Audit Ledger     │ Relational Audit Log + RBAC    │
+│ Tamper-Evident Evidence      │ Digital Custody Chain Vault      │ SHA-256 Blockchain Ledger      │
+│ Actionable Output            │ Official Reports & 360° Dossiers │ React 18, Vite, Tailored PDF   │
+└──────────────────────────────┴──────────────────────────────────┴────────────────────────────────┘
+```
 
-### 3. 🛡️ Cryptographic Security Governance & Audit Trail
-*Zero-trust auditing designed for rigorous evidentiary compliance and chain-of-custody integrity.*
-- **Granular Event Capture**: Every system action logs `event_id`, `actor`, `role`, `action`, `resource`, `resource_id`, `timestamp`, `status`, `severity`, and session IP/User-Agent metadata.
-- **State Transition Auditing**: Tracks before-and-after states for critical investigator decisions (e.g. `PROBABLE_MATCH` → `CONFIRMED` / `REJECTED`).
-- **Real-Time Security Feed**: Automated brute-force detection, suspicious login flagging, and off-hours query monitoring.
-- **Multi-Attribute Filters**: Filter thousands of audit records by action type, severity, user, resource, date range, or free text.
-- **Deep Inspection Modal**: Click any audit event to reveal complete provenance and session context.
+---
 
-### 4. 🔗 SHA-256 Blockchain Evidence Vault
-*Mathematical proof that forensic documents have not been tampered with or replaced.*
-- **Cryptographic Chaining**: Every piece of digital evidence is hashed (SHA-256) and notarized in an immutable block containing the previous block's hash.
-- **Instant Tamper Detection**: Real-time blockchain validator verifies chain continuity and flags any modified blocks immediately.
+## ⚙️ How It Is Implemented
 
-### 5. 🕸️ Graph Intelligence & Link Analysis
-- Force-directed graph visualization rendering complex suspect syndicates.
-- Dijkstra-based shortest pathfinding between suspects, bank accounts, and shell entities.
-- Centrality metrics (Degree, Betweenness, PageRank) identifying network ringleaders and critical financial bridges.
+### 1. 🔍 Automated Forensic Named Entity Recognition (NER)
+- **Problem Addressed**: Unstructured narrative FIRs and witness transcripts conceal crucial suspect names, vehicle plates, phone numbers, and meeting spots.
+- **Implementation**:
+  - Implemented a fine-tuned **DistilBERT** transformer model (`backend/app/intelligence/ner/`) specialized on Indian law enforcement text.
+  - Automatically parses free-text FIR summaries to extract typed entities: `PERSON`, `ORGANIZATION`, `VEHICLE`, `PHONE`, `LOCATION`, and `IPC_SECTION`.
+  - Normalizes extracted values (E.164 phone standards, standard vehicle registration formats, Indian Penal Code sections).
+
+### 2. 🪪 Multi-Signal Entity Resolution (Identity Deduplication)
+- **Problem Addressed**: Suspects appear under different aliases across police stations (e.g., *Ramu Kumar* in Delhi vs. *Ramesh Kumar* in Noida).
+- **Implementation**:
+  - A deterministic & probabilistic multi-signal resolution engine (`backend/app/intelligence/entity_resolution/`).
+  - Evaluates five independent weighted forensic signals:
+    $$\text{Match Confidence} = w_1 \cdot \text{NameSim} + w_2 \cdot \text{PhoneMatch} + w_3 \cdot \text{DOBMatch} + w_4 \cdot \text{AddressSim} + w_5 \cdot \text{VehicleOverlap}$$
+  - Preserves data provenance: **original police records are never overwritten**. Both source stations' records remain untouched while generating a unified canonical profile.
+  - Allows investigators to review proposed candidate matches (`PROBABLE_MATCH` → `CONFIRMED` / `REJECTED`) with an automatic audit trail.
+
+### 3. 🕸️ Dynamic Knowledge Graph & Key Influencer Identification
+- **Problem Addressed**: Identifying hidden ringleaders, cut-outs, and money laundering conduits within large networks.
+- **Implementation**:
+  - Graph builder (`backend/app/graph/builder.py`) unifies entities into typed nodes (`PERSON`, `ORGANIZATION`, `LOCATION`, `VEHICLE`, `ACCOUNT`) and weighted edges (`COMMUNICATED_WITH`, `TRANSACTED_WITH`, `CO_LOCATED`, `DIRECTOR_OF`, `OPERATES_VEHICLE`).
+  - Computes network centrality algorithms (`backend/app/services/graph_analysis_service.py`):
+    - **PageRank**: Detects the most influential actors receiving structural coordination.
+    - **Betweenness Centrality**: Pinpoints critical "gatekeepers" and financial intermediaries connecting otherwise disjointed crews.
+    - **Degree Centrality**: Highlights highly active operatives with high call/transaction volumes.
+  - Interactive force-directed frontend visualization with shortest path discovery between any two selected targets.
+
+### 4. 🚨 Suspicious Pattern & Anomaly Detection
+- **Problem Addressed**: Criminals exploit off-hours communication bursts, rapid phone swaps, and cash structuring to avoid detection.
+- **Implementation**:
+  - **Spatio-Temporal Analysis** (`backend/app/intelligence/location_analysis/`): Utilizes **IsolationForest** and **DBSCAN** spatial clustering to detect unusual travel velocities (e.g., physically impossible transit between cell towers) and sudden off-hours visits to remote warehouses.
+  - **Communication Anomaly Detection**: Flags late-night calling bursts (e.g., 3:00 AM spikes between unassociated burner handsets).
+  - **Financial Structuring Alerts**: Automatically flags repeated sub-threshold transactions structured to bypass statutory reporting limits.
+
+### 5. 📑 Automated Investigation Reports & 360° Entity Dossiers
+- **Problem Addressed**: Officers waste days manually drafting case files and cross-referencing dockets.
+- **Implementation**:
+  - **Case Intelligence Report Engine** (`backend/app/reports/generator.py`): Aggregates FIR docket details, suspects, network links, chronological timelines, CDRs, transaction logs, and AI lead findings into an official court-ready document with print and JSON export.
+  - **360° Subject Dossier**: Instant live lookup over **100,000+ Master Entities** hosted on Supabase, revealing primary identity, street aliases, registered vehicle assets, phone numbers, linked FIR court cases, and network ties in a single view.
+
+### 6. 🛡️ Cryptographic Security Governance & Audit Trail
+- **Problem Addressed**: Preventing unauthorized data tampering, preserving evidentiary admissibility in court, and enforcing strict officer access control.
+- **Implementation**:
+  - **Hierarchical RBAC**: Strict role enforcement (`VIEWER` < `ANALYST` < `INVESTIGATOR` < `ADMIN`) with automated brute-force lockout shields.
+  - **Immutable Audit Ledger** (`backend/app/api/routes/audit_routes.py`): Every access, search, report generation, dossier view, and entity match confirmation records `event_id`, `actor`, `role`, `action`, `resource`, `timestamp`, `status`, `severity`, before-and-after state transitions, and session IP/User-Agent metadata.
+  - **SHA-256 Blockchain Evidence Vault** (`backend/app/blockchain/`): Notarizes every piece of digital evidence in a cryptographically chained block ledger. Any alteration to evidence instantly breaks the hash continuity, alerting investigators to data tampering.
 
 ---
 
@@ -74,11 +106,11 @@ Modern law enforcement agencies face a severe intelligence silo problem: **suspe
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  PRESENTATION LAYER                                    │
+│                                  PRESENTATION TIER                                     │
 │       React 18  •  TypeScript  •  Vite  •  TailwindCSS  •  Lucide Icons  •  Zustand     │
 │                                                                                        │
 │  [ Executive Dashboard ]   [ FIR Case Manager ]   [ 360° Entity Dossiers ]             │
-│  [ Link Analysis Graph ]   [ Evidence Vault ]     [ Security Governance & Audit Trail ]│
+│  [ Graph Link Analysis ]   [ Evidence Vault ]     [ Security Governance & Audit Trail ]│
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │ HTTP / REST / Secure JWT
 ┌───────────────────────────────────────────▼────────────────────────────────────────────┐
@@ -94,10 +126,10 @@ Modern law enforcement agencies face a severe intelligence silo problem: **suspe
 │  └───────────────────────┘  └───────────────────────┘  └────────────────────────────┘ │
 │  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
 │  │                            AI / ML INTELLIGENCE SUITE                            │  │
-│  │  • DistilBERT NER (Named Entity Extraction)                                      │  │
+│  │  • DistilBERT NER (Named Entity Extraction from narratives)                      │  │
 │  │  • Multi-Signal Entity Resolver (Jaro-Winkler + Levenshtein + Phone/DOB Matching)│  │
 │  │  • IsolationForest & DBSCAN (Geospatial & Spatio-Temporal Anomaly Detection)     │  │
-│  │  • XGBoost Lead Ranker (Cross-Case Association Prioritization)                   │  │
+│  │  • XGBoost Lead Ranker (Cross-Case Association Prioritizer)                      │  │
 │  │  • Seq2Seq FLAN-T5 (Forensic Briefing Summarizer)                                │  │
 │  │  • SHAP Explainability & Evidence Provenance Layer                               │  │
 │  └──────────────────────────────────────────────────────────────────────────────────┘  │
@@ -105,55 +137,11 @@ Modern law enforcement agencies face a severe intelligence silo problem: **suspe
                                             │
 ┌───────────────────────────────────────────▼────────────────────────────────────────────┐
 │                                    DATA STORAGE TIER                                   │
-│   • Local SQLite Database (SQLAlchemy 2.0 ORM for low-latency session & state)          │
+│   • Local SQLite Database (SQLAlchemy 2.0 ORM for session, case, and audit state)       │
 │   • Supabase Cloud Database (PostgreSQL hosting 100,000+ Master Synthetic Entities)    │
 │   • Supabase Storage (Encrypted Evidence Documents & CDR Uploads)                      │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 🧠 Unified Intelligence Pipeline
-
-```
-[ Raw Intelligence ]
-(Uploaded Evidence, Telecom CDR Dumps, Bank Feeds, Toll Scans, Handwritten Logs)
-         │
-         ▼
-[ DistilBERT NER Extraction ]
-(Discovers Persons, Organizations, Vehicles, Locations, and Identifiers)
-         │
-         ▼
-[ Multi-Signal Entity Resolution ]
-(Calculates similarity matrix across Names, DOB, Telephones, Addresses, and Associates)
-         │
-         ▼
-[ Canonical Master Entities ]
-(Resolves duplicate profiles across separate police stations into one single truth)
-         │
-         ▼
-[ Knowledge Graph Builder ]
-(Constructs dynamic nodes & typed edges: CO_CONSPIRATOR, TRANSACTED_WITH, CALL_INTERCEPT)
-         │
-         ▼
-[ Anomaly & Temporal Analysis ]
-(IsolationForest flags off-hours communications, rapid burner swaps, and toll pings)
-         │
-         ▼
-[ XGBoost Lead Prioritizer ]
-(Scores cross-case criminal associations to surface high-priority investigatory leads)
-         │
-         ▼
-[ SHAP Explainability & Provenance ]
-(Generates human-interpretable reasons why an entity was flagged without black-box bias)
-         │
-         ▼
-[ Investigator Review & Dossier Export ]
-(Officer verifies or rejects findings; actions are permanently sealed in Audit Log)
-```
-
-> [!NOTE]
-> *All AI models operate under a **Weak Supervision** framework. The platform provides explainable leads to empower human officers; AI never makes final criminal determinations.*
 
 ---
 
@@ -175,10 +163,10 @@ cp .env.example .env
 
 ### 2. Backend Installation & Database Seeding
 ```bash
-# Install Python requirements
+# Install Python dependencies
 pip install -r backend/requirements.txt
 
-# Seed the database with demo accounts, sample FIR cases, entity links, and audit history
+# Seed the database with demo officers, sample cases, entity links, and audit history
 python seed.py
 ```
 
@@ -190,25 +178,25 @@ cd ..
 ```
 
 ### 4. Launch the Platform
-You can run both backend and frontend concurrently with a single command:
+Run both backend and frontend concurrently with a single command:
 ```bash
 npm run dev:all
 ```
-- **Web Console**: `http://localhost:3000`
-- **FastAPI Documentation (Swagger)**: `http://localhost:8000/docs`
-- **FastAPI ReDoc**: `http://localhost:8000/redoc`
+- **Web Application**: `http://localhost:3000`
+- **FastAPI Interactive Docs (Swagger UI)**: `http://localhost:8000/docs`
+- **FastAPI Alternative Docs (ReDoc)**: `http://localhost:8000/redoc`
 
 ---
 
 ## 🔑 Pre-Seeded Demo Credentials
 
-The platform includes 4 role-tiered demo accounts matching real-world law enforcement hierarchies:
+The platform includes 4 role-tiered demo accounts matching real-world police hierarchies:
 
-| Role Title | Email | Default Password | Permissions & Access Scope |
+| Role Title | Email | Default Password | Clearance & Access Scope |
 |---|---|---|---|
 | **Chief Inspector / Admin** | `admin@crimeintel.demo` | `Admin@1234` | Full system governance, security audit logs, user management, and ledger verification |
 | **Lead Investigator** | `investigator@crimeintel.demo` | `Investigator@1234` | Case creation, suspect tracking, entity match review, report generation, and evidence sealing |
-| **Forensic Analyst** | `analyst@crimeintel.demo` | `Analyst@1234` | Graph link analysis, anomaly detection, temporal queries, and lead generation |
+| **Forensic Analyst** | `analyst@crimeintel.demo` | `Analyst@1234` | Graph link analysis, anomaly detection, temporal queries, and lead prioritization |
 | **Field Officer / Viewer** | `viewer@crimeintel.demo` | `Viewer@1234` | Read-only access to published dossiers, evidence documents, and public reports |
 
 ---
@@ -267,7 +255,7 @@ The platform includes 4 role-tiered demo accounts matching real-world law enforc
 Run the automated test suite to ensure backend APIs and AI pipelines are functioning:
 
 ```bash
-# Run pytest test suite
+# Run pytest backend test suite
 pytest -v
 
 # Run frontend production build check (TypeScript + Vite)
@@ -285,5 +273,5 @@ npm --prefix frontend run build
 ---
 
 <div align="center">
-  <sub>Built with ❤️ for the Smart India Hackathon (SIH) • CrimeIntel Platform</sub>
+  <sub>Smart India Hackathon (SIH) • Problem Statement ID: 26189 • CrimeIntel Platform</sub>
 </div>

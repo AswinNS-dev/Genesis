@@ -383,13 +383,19 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(String, primary_key=True, default=gen_id)
-    action = Column(String, nullable=False)
+    action = Column(String, nullable=False, index=True)
     detail = Column(Text, nullable=True)
     ip = Column(String, nullable=True)
     userAgent = Column(String, nullable=True)
     status = Column(String, default="SUCCESS")
+    severity = Column(String, default="INFO")  # INFO, LOW, MEDIUM, HIGH, CRITICAL
+    resource = Column(String, nullable=True)  # e.g. "Case", "Entity", "EntityMatch", "Evidence", "Report", "Dossier"
+    resourceId = Column(String, nullable=True)
+    role = Column(String, nullable=True)  # actor role at time of action
+    previousState = Column(Text, nullable=True)
+    newState = Column(Text, nullable=True)
     userId = Column(String, nullable=True)
-    createdAt = Column(DateTime, default=utc_now)
+    createdAt = Column(DateTime, default=utc_now, index=True)
 
     caseId = Column(String, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
     case = relationship("InvestigationCase", back_populates="auditLogs")

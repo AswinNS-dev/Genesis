@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 from backend.app.database.connection import get_db
@@ -102,20 +102,52 @@ def login(payload: LoginSchema, request: Request, response: Response, db: Sessio
         except Exception as e:
             print(f"Supabase login lookup error: {e}")
 
+    client_ip = request.client.host if request and request.client else "127.0.0.1"
+    user_agent = request.headers.get("user-agent") if request else None
+
     if not user or not verify_password(payload.password, user.passwordHash):
         # Demo password direct match fallback for quick testing
         demo_pwd = DEFAULT_DEMO_PASSWORDS.get(email_clean)
         if user and demo_pwd and payload.password == demo_pwd:
             pass  # Allowed for standard demo password
         else:
-            attempt = LoginAttempt(email=payload.email, success=False, reason="Invalid credentials")
+            if user:
+                user.failedLogins = (user.failedLogins or 0) + 1
+                from backend.app.security.threat_detection import evaluate_login_threats
+                evaluate_login_threats(db, user)
+
+            attempt = LoginAttempt(email=payload.email, success=False, reason="Invalid credentials", ip=client_ip, userAgent=user_agent, userId=user.id if user else None)
+            audit = AuditLog(
+                action="LOGIN_FAILED",
+                detail=f"Failed authentication attempt for {payload.email}",
+                userId=user.id if user else None,
+                ip=client_ip,
+                userAgent=user_agent,
+                status="FAILED",
+                severity="HIGH" if user and user.failedLogins >= 3 else "MEDIUM",
+                resource="Authentication",
+                resourceId=payload.email,
+                role=user.role if user else "UNKNOWN"
+            )
             db.add(attempt)
+            db.add(audit)
             db.commit()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     user.failedLogins = 0
-    attempt = LoginAttempt(email=payload.email, success=True, userId=user.id)
-    audit = AuditLog(action="LOGIN", detail="Successful sign-in", userId=user.id)
+    attempt = LoginAttempt(email=payload.email, success=True, userId=user.id, ip=client_ip, userAgent=user_agent)
+    audit = AuditLog(
+        action="LOGIN_SUCCESS",
+        detail=f"Officer {user.name} ({user.role}) successfully authenticated",
+        userId=user.id,
+        ip=client_ip,
+        userAgent=user_agent,
+        status="SUCCESS",
+        severity="INFO",
+        resource="Authentication",
+        resourceId=user.id,
+        role=user.role
+    )
     db.add(attempt)
     db.add(audit)
     db.commit()
@@ -130,8 +162,23 @@ def login(payload: LoginSchema, request: Request, response: Response, db: Sessio
     )
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(request: Request, response: Response, user: Optional[User] = Depends(get_current_user_optional), db: Session = Depends(get_db)):
     response.delete_cookie(key="access_token")
+    if user:
+        client_ip = request.client.host if request and request.client else "127.0.0.1"
+        audit = AuditLog(
+            action="LOGOUT",
+            detail=f"Officer {user.name} signed out",
+            userId=user.id,
+            ip=client_ip,
+            status="SUCCESS",
+            severity="INFO",
+            resource="Authentication",
+            resourceId=user.id,
+            role=user.role
+        )
+        db.add(audit)
+        db.commit()
     return {"message": "Logged out successfully"}
 
 @router.get("/me", response_model=UserResponseSchema)

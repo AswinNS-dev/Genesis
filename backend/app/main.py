@@ -19,7 +19,8 @@ from backend.app.api.routes import (
     auth_router, cases_router, entities_router,
     datasets_router, analysis_router, evidence_router,
     blockchain_router, reports_router, search_router,
-    intelligence_router, dashboard_router, debug_router
+    intelligence_router, dashboard_router, debug_router,
+    audit_router
 )
 
 def create_application() -> FastAPI:
@@ -50,6 +51,7 @@ def create_application() -> FastAPI:
     app.include_router(intelligence_router, prefix=api_prefix)
     app.include_router(debug_router, prefix=api_prefix)
     app.include_router(auth_router, prefix=api_prefix)
+    app.include_router(audit_router, prefix=api_prefix)
 
     @app.on_event("startup")
     def on_startup():

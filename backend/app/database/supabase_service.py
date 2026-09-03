@@ -615,64 +615,196 @@ class SupabaseService:
 
         return blocks
 
-    # --- Network Graph Builder ---
-    def get_network_graph(self, case_id: Optional[str] = None, max_nodes: int = 60) -> Dict[str, Any]:
+    def get_network_graph(self, case_id: Optional[str] = None, max_nodes: int = 150, search: Optional[str] = None) -> Dict[str, Any]:
         """
-        Builds live dynamic graph from real entities, call records, and transactions.
+        Builds live dynamic graph from real entities, call records, financial transactions,
+        FIR cases, vehicles, and location events with full supporting evidence metadata.
         """
-        nodes_dict = {}
-        edges = []
+        nodes_dict: Dict[str, Dict[str, Any]] = {}
+        edges: List[Dict[str, Any]] = []
 
-        # 1. Pull entities
-        params = {"limit": max_nodes}
+        # 1. Real Entities
+        params: Dict[str, Any] = {"limit": max_nodes}
         if case_id:
             params["case_id"] = f"eq.{case_id}"
+        if search:
+            params["or"] = f"(person_name.ilike.*{search}*,location.ilike.*{search}*,vehicle_plate.ilike.*{search}*,phone_number.ilike.*{search}*)"
         ent_rows = self._get("entities", params=params)
 
         for r in (ent_rows if isinstance(ent_rows, list) else []):
             pid = str(r.get("person_id") or r.get("record_id"))
-            pname = r.get("person_name") or "Subject"
+            pname = r.get("person_name") or "Identified Person"
             nodes_dict[pid] = {
                 "id": pid,
                 "label": pname,
                 "type": "PERSON",
-                "riskScore": int(r.get("risk_score") or 50)
+                "riskScore": int(float(r.get("risk_score") or 50)),
+                "phone": r.get("phone_number"),
+                "vehicle": r.get("vehicle_plate"),
+                "location": r.get("location"),
+                "caseId": r.get("case_id"),
+                "date": r.get("event_date")
             }
 
-            # Add connected location or vehicle node
+            # Real Location Node
             if r.get("location"):
-                loc_id = f"LOC-{r.get('location_id') or r.get('location')[:8]}"
-                nodes_dict[loc_id] = {"id": loc_id, "label": r.get("location"), "type": "LOCATION", "riskScore": 20}
-                edges.append({"id": f"e-{pid}-{loc_id}", "source": pid, "target": loc_id, "type": "LOCATED_AT", "strength": 1})
+                loc_id = f"LOC-{str(r.get('location')).replace(' ', '_')}"
+                if loc_id not in nodes_dict:
+                    nodes_dict[loc_id] = {
+                        "id": loc_id,
+                        "label": r.get("location"),
+                        "type": "LOCATION",
+                        "riskScore": 20
+                    }
+                edges.append({
+                    "id": f"e-loc-{pid}-{loc_id}",
+                    "source": pid,
+                    "target": loc_id,
+                    "type": "LOCATED_AT",
+                    "strength": 1,
+                    "supportingRecord": f"Entity Record: {r.get('record_id')}",
+                    "supportingDetail": f"Primary location recorded as {r.get('location')}",
+                    "date": r.get("event_date") or "2024-01-01"
+                })
 
+            # Real Vehicle Node
             if r.get("vehicle_plate"):
                 veh_id = f"VEH-{r.get('vehicle_plate')}"
-                nodes_dict[veh_id] = {"id": veh_id, "label": r.get("vehicle_plate"), "type": "VEHICLE", "riskScore": 30}
-                edges.append({"id": f"e-{pid}-{veh_id}", "source": pid, "target": veh_id, "type": "USES_VEHICLE", "strength": 2})
+                if veh_id not in nodes_dict:
+                    nodes_dict[veh_id] = {
+                        "id": veh_id,
+                        "label": r.get("vehicle_plate"),
+                        "type": "VEHICLE",
+                        "riskScore": 30
+                    }
+                edges.append({
+                    "id": f"e-veh-{pid}-{veh_id}",
+                    "source": pid,
+                    "target": veh_id,
+                    "type": "USES_VEHICLE",
+                    "strength": 2,
+                    "supportingRecord": f"Vehicle Registry: {r.get('vehicle_plate')}",
+                    "supportingDetail": f"Vehicle associated with subject {pname}",
+                    "date": r.get("event_date") or "2024-01-01"
+                })
 
-        # 2. Add Call relationships
-        calls = self._get("call_records", params={"limit": 30})
+        # 2. Real Call Records (Person <-> Person)
+        calls = self._get("call_records", params={"limit": 80})
         for cl in (calls if isinstance(calls, list) else []):
             c1 = str(cl.get("caller_id") or cl.get("caller_name"))
             c2 = str(cl.get("callee_id") or cl.get("callee_name"))
             if c1 and c2:
                 if c1 not in nodes_dict:
-                    nodes_dict[c1] = {"id": c1, "label": cl.get("caller_name", c1), "type": "PERSON", "riskScore": 65}
+                    nodes_dict[c1] = {"id": c1, "label": cl.get("caller_name", c1), "type": "PERSON", "phone": cl.get("caller_number"), "riskScore": 60}
                 if c2 not in nodes_dict:
-                    nodes_dict[c2] = {"id": c2, "label": cl.get("callee_name", c2), "type": "PERSON", "riskScore": 60}
-                edges.append({"id": f"call-{cl.get('cdr_id')}", "source": c1, "target": c2, "type": "COMMUNICATED_WITH", "strength": 3})
+                    nodes_dict[c2] = {"id": c2, "label": cl.get("callee_name", c2), "type": "PERSON", "phone": cl.get("callee_number"), "riskScore": 55}
+                
+                edges.append({
+                    "id": f"call-{cl.get('cdr_id')}",
+                    "source": c1,
+                    "target": c2,
+                    "type": "COMMUNICATION",
+                    "strength": 3,
+                    "supportingRecord": f"CDR ID: {cl.get('cdr_id')}",
+                    "supportingDetail": f"{cl.get('call_type', 'Voice')} Call ({cl.get('duration_seconds', 0)}s) via {cl.get('cell_tower_city', 'Tower Site')}",
+                    "date": cl.get("call_datetime") or "2024-01-01"
+                })
 
-        # 3. Add Transaction relationships
-        txns = self._get("financial_transactions", params={"limit": 20})
+        # 3. Real Financial Transactions (Person <-> Person)
+        txns = self._get("financial_transactions", params={"limit": 60})
         for tx in (txns if isinstance(txns, list) else []):
             s1 = str(tx.get("sender_id") or tx.get("sender_name"))
             r1 = str(tx.get("receiver_id") or tx.get("receiver_name"))
             if s1 and r1:
                 if s1 not in nodes_dict:
-                    nodes_dict[s1] = {"id": s1, "label": tx.get("sender_name", s1), "type": "PERSON", "riskScore": 75}
+                    nodes_dict[s1] = {"id": s1, "label": tx.get("sender_name", s1), "type": "PERSON", "riskScore": 65}
                 if r1 not in nodes_dict:
-                    nodes_dict[r1] = {"id": r1, "label": tx.get("receiver_name", r1), "type": "PERSON", "riskScore": 70}
-                edges.append({"id": f"txn-{tx.get('txn_id')}", "source": s1, "target": r1, "type": "TRANSACTED_WITH", "strength": 4})
+                    nodes_dict[r1] = {"id": r1, "label": tx.get("receiver_name", r1), "type": "PERSON", "riskScore": 60}
+                
+                amt = float(tx.get("amount_inr") or 0)
+                edges.append({
+                    "id": f"txn-{tx.get('txn_id')}",
+                    "source": s1,
+                    "target": r1,
+                    "type": "FINANCIAL_TRANSACTION",
+                    "strength": 4,
+                    "supportingRecord": f"Txn ID: {tx.get('txn_id')}",
+                    "supportingDetail": f"INR {amt:,.2f} transfer ({tx.get('transaction_type', 'Transfer')}) from {tx.get('sender_bank', 'Bank')} to {tx.get('receiver_bank', 'Bank')}",
+                    "date": tx.get("transaction_datetime") or "2024-01-01"
+                })
+
+        # 4. Real FIR Cases (Person <-> FIR Docket)
+        fir_params: Dict[str, Any] = {"limit": 40}
+        if search:
+            fir_params["or"] = f"(crime_type.ilike.*{search}*,accused_name.ilike.*{search}*,jurisdiction_city.ilike.*{search}*,case_number.ilike.*{search}*,fir_id.ilike.*{search}*)"
+        fir_rows = self._get("fir_cases", params=fir_params)
+        for f in (fir_rows if isinstance(fir_rows, list) else []):
+            fid = str(f.get("fir_id") or f.get("case_number"))
+            acc_name = f.get("accused_name")
+            acc_id = str(f.get("accused_id") or acc_name)
+            if fid and acc_id:
+                if fid not in nodes_dict:
+                    nodes_dict[fid] = {
+                        "id": fid,
+                        "label": f"FIR {f.get('case_number') or fid}",
+                        "type": "FIR",
+                        "riskScore": int(float(f.get("risk_score") or 7) * 10),
+                        "crimeType": f.get("crime_type"),
+                        "jurisdiction": f.get("jurisdiction_city")
+                    }
+                if acc_id not in nodes_dict and acc_name:
+                    nodes_dict[acc_id] = {
+                        "id": acc_id,
+                        "label": acc_name,
+                        "type": "PERSON",
+                        "riskScore": 75
+                    }
+                
+                edges.append({
+                    "id": f"fir-rel-{fid}-{acc_id}",
+                    "source": acc_id,
+                    "target": fid,
+                    "type": "SHARED_CASE",
+                    "strength": 5,
+                    "supportingRecord": f"FIR Docket: {fid}",
+                    "supportingDetail": f"Accused in {f.get('crime_type')} docket under IPC {f.get('ipc_sections')}",
+                    "date": f.get("date_of_filing") or f.get("date_of_incident") or "2024-01-01"
+                })
+
+        # 5. Real Location Events (Person <-> Location Events)
+        loc_rows = self._get("location_events", params={"limit": 50})
+        for l in (loc_rows if isinstance(loc_rows, list) else []):
+            pid = str(l.get("person_id") or l.get("person_name"))
+            pname = l.get("person_name") or "Person"
+            loc_name = l.get("location_detail") or l.get("city") or "Location Site"
+            loc_id = f"LOC-{loc_name.replace(' ', '_')}"
+
+            if loc_id not in nodes_dict:
+                nodes_dict[loc_id] = {
+                    "id": loc_id,
+                    "label": loc_name,
+                    "type": "LOCATION",
+                    "riskScore": 25
+                }
+            if pid not in nodes_dict:
+                nodes_dict[pid] = {
+                    "id": pid,
+                    "label": pname,
+                    "type": "PERSON",
+                    "phone": l.get("phone_number"),
+                    "riskScore": 50
+                }
+
+            edges.append({
+                "id": f"loc-event-{l.get('event_id')}",
+                "source": pid,
+                "target": loc_id,
+                "type": "LOCATION_EVENT",
+                "strength": 2,
+                "supportingRecord": f"Event ID: {l.get('event_id')}",
+                "supportingDetail": f"{l.get('event_type', 'Presence')} logged in {l.get('city', '')} via {l.get('source_system', 'Sensor')}",
+                "date": l.get("event_datetime") or "2024-01-01"
+            })
 
         return {
             "nodes": list(nodes_dict.values())[:max_nodes],

@@ -93,6 +93,25 @@ def get_network_explorer_endpoint(
     Dedicated Criminal Network Explorer query endpoint with multi-parameter filtering,
     crime-type search, ego-network neighborhood extraction, and dossier telemetry.
     """
+    search = search if isinstance(search, str) and search.strip() else None
+    crime_type = crime_type if isinstance(crime_type, str) and crime_type.strip() else None
+    district = district if isinstance(district, str) and district.strip() else None
+    police_station = police_station if isinstance(police_station, str) and police_station.strip() else None
+    entity_type = entity_type if isinstance(entity_type, str) and entity_type.strip() else None
+    focus_id = focus_id if isinstance(focus_id, str) and focus_id.strip() else None
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 200
+    try:
+        hops = int(hops)
+    except Exception:
+        hops = 2
+    try:
+        min_risk = int(min_risk)
+    except Exception:
+        min_risk = 0
+
     from backend.app.database.supabase_service import supabase_db
     
     # 1. Fetch raw nodes & relationships from database
@@ -170,21 +189,134 @@ def get_network_explorer_endpoint(
     # Filter edges to only include active nodes
     filtered_edges = [e for e in edges if e["source"] in valid_node_ids and e["target"] in valid_node_ids]
 
-    # Calculate degrees
-    degrees: Dict[str, int] = {}
+    # Calculate Network Metrics using existing GraphAnalysisService algorithms
+    svc = GraphAnalysisService(db)
+    node_ids = [n["id"] for n in nodes]
+    
+    active_adj: Dict[str, set] = {nid: set() for nid in node_ids}
     for e in filtered_edges:
-        degrees[e["source"]] = degrees.get(e["source"], 0) + 1
-        degrees[e["target"]] = degrees.get(e["target"], 0) + 1
+        active_adj[e["source"]].add(e["target"])
+        active_adj[e["target"]].add(e["source"])
 
+    # Centralities
+    betweenness = svc._calculate_betweenness(node_ids, active_adj) if len(node_ids) > 1 else {}
+    closeness = svc._calculate_closeness(node_ids, active_adj) if len(node_ids) > 1 else {}
+    pagerank = svc._calculate_pagerank(node_ids, active_adj) if len(node_ids) > 0 else {}
+
+    # Detect Communities (Connected Component Clusters)
+    visited_comm = set()
+    raw_clusters = []
+    for nid in node_ids:
+        if nid not in visited_comm:
+            comp = []
+            q = [nid]
+            visited_comm.add(nid)
+            while q:
+                curr = q.pop(0)
+                comp.append(curr)
+                for nbr in active_adj.get(curr, set()):
+                    if nbr not in visited_comm:
+                        visited_comm.add(nbr)
+                        q.append(nbr)
+            raw_clusters.append(comp)
+
+    raw_clusters.sort(key=len, reverse=True)
+    communities = []
+    node_comm_map = {}
+    node_obj_map = {n["id"]: n for n in nodes}
+
+    for idx, member_ids in enumerate(raw_clusters):
+        c_id = f"Cluster {idx + 1}"
+        for mid in member_ids:
+            node_comm_map[mid] = c_id
+        
+        type_counts: Dict[str, int] = {}
+        for mid in member_ids:
+            t = node_obj_map.get(mid, {}).get("type", "PERSON")
+            type_counts[t] = type_counts.get(t, 0) + 1
+        dom_type = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[0][0] if type_counts else "PERSON"
+
+        m_set = set(member_ids)
+        internal_edges = [e for e in filtered_edges if e["source"] in m_set and e["target"] in m_set]
+
+        communities.append({
+            "id": c_id,
+            "name": f"Community {idx + 1} ({dom_type} Cluster)",
+            "memberCount": len(member_ids),
+            "edgeCount": len(internal_edges),
+            "dominantType": dom_type,
+            "memberIds": member_ids,
+            "topMembers": [node_obj_map[mid].get("label", mid) for mid in member_ids[:4] if mid in node_obj_map]
+        })
+
+    # Enrich Nodes with calculated centrality and community
     for n in nodes:
-        n["degree"] = degrees.get(n["id"], 0)
+        nid = n["id"]
+        n["degree"] = len(active_adj.get(nid, set()))
+        n["betweenness"] = betweenness.get(nid, 0.0)
+        n["closeness"] = closeness.get(nid, 0.0)
+        n["pageRank"] = pagerank.get(nid, 0.0)
+        n["community"] = node_comm_map.get(nid, "Cluster 1")
+
+    # Link Analysis Breakdown
+    edge_type_counter: Dict[str, int] = {}
+    for e in filtered_edges:
+        t = e.get("type", "RELATED_TO")
+        edge_type_counter[t] = edge_type_counter.get(t, 0) + 1
+
+    link_analysis = [
+        {"type": k, "count": v, "percentage": round((v / len(filtered_edges)) * 100, 1) if filtered_edges else 0}
+        for k, v in sorted(edge_type_counter.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Timeline Events from active records
+    timeline_events = []
+    for n in nodes:
+        if n.get("date"):
+            timeline_events.append({
+                "id": f"time-{n['id']}",
+                "entityId": n["id"],
+                "entityName": n.get("label", n["id"]),
+                "type": n.get("type", "EVENT"),
+                "date": n["date"],
+                "title": f"{n.get('type')} Record: {n.get('label')}",
+                "detail": f"Jurisdiction: {n.get('jurisdiction') or 'Monitored Sector'} • Case: {n.get('caseId') or 'General Inquiry'}"
+            })
+    for e in filtered_edges[:20]:
+        if e.get("date"):
+            timeline_events.append({
+                "id": f"time-e-{e['id']}",
+                "entityId": e["source"],
+                "entityName": node_obj_map.get(e["source"], {}).get("label", e["source"]),
+                "type": e.get("type", "INTERACTION"),
+                "date": e["date"],
+                "title": f"Interaction: {e.get('type')}",
+                "detail": e.get("supportingDetail") or e.get("supportingRecord") or "Logged Database Link"
+            })
+    timeline_events.sort(key=lambda x: x.get("date") or "", reverse=True)
+
+    # Dynamic Filter Options
+    fir_cases = supabase_db.list_cases(limit=200)
+    all_crime_types = sorted(list(set(c.get("category", "") for c in fir_cases if c.get("category"))))
+    all_districts = sorted(list(set(c.get("jurisdiction", "").split(",")[0].strip() for c in fir_cases if c.get("jurisdiction"))))
+    all_police_stations = sorted(list(set(c.get("police_station", "") for c in fir_cases if c.get("police_station"))))
 
     return {
         "nodes": nodes,
         "edges": filtered_edges,
         "totalNodes": len(nodes),
         "totalEdges": len(filtered_edges),
+        "communities": communities,
+        "linkAnalysis": link_analysis,
+        "timeline": timeline_events[:30],
+        "topHubs": sorted(nodes, key=lambda x: x["degree"], reverse=True)[:5],
+        "topBridges": sorted(nodes, key=lambda x: x.get("betweenness", 0), reverse=True)[:5],
+        "filterOptions": {
+            "crimeTypes": all_crime_types,
+            "districts": all_districts,
+            "policeStations": all_police_stations
+        },
         "scope": "DATASET SCOPE: CONTAINS REAL INTELLIGENCE RECORDS",
-        "timestamp": "2026-09-03T11:00:00Z"
+        "timestamp": "2026-09-03T12:00:00Z"
     }
 

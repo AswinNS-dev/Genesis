@@ -620,6 +620,11 @@ class SupabaseService:
         Builds live dynamic graph from real entities, call records, financial transactions,
         FIR cases, vehicles, and location events with full supporting evidence metadata.
         """
+        try:
+            max_nodes = int(max_nodes)
+        except Exception:
+            max_nodes = 150
+
         nodes_dict: Dict[str, Dict[str, Any]] = {}
         edges: List[Dict[str, Any]] = []
 

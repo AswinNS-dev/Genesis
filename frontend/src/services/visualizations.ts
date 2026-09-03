@@ -66,6 +66,10 @@ export interface NetworkExplorerNode {
   type: string;
   riskScore: number;
   degree?: number;
+  betweenness?: number;
+  closeness?: number;
+  pageRank?: number;
+  community?: string;
   phone?: string;
   vehicle?: string;
   location?: string;
@@ -90,11 +94,47 @@ export interface NetworkExplorerEdge {
   date?: string;
 }
 
+export interface NetworkCommunity {
+  id: string;
+  name: string;
+  memberCount: number;
+  edgeCount: number;
+  dominantType: string;
+  memberIds: string[];
+  topMembers: string[];
+}
+
+export interface NetworkLinkAnalysisItem {
+  type: string;
+  count: number;
+  percentage: number;
+}
+
+export interface NetworkTimelineItem {
+  id: string;
+  entityId: string;
+  entityName: string;
+  type: string;
+  date: string;
+  title: string;
+  detail: string;
+}
+
 export interface NetworkExplorerData {
   nodes: NetworkExplorerNode[];
   edges: NetworkExplorerEdge[];
   totalNodes: number;
   totalEdges: number;
+  communities?: NetworkCommunity[];
+  linkAnalysis?: NetworkLinkAnalysisItem[];
+  timeline?: NetworkTimelineItem[];
+  topHubs?: NetworkExplorerNode[];
+  topBridges?: NetworkExplorerNode[];
+  filterOptions?: {
+    crimeTypes: string[];
+    districts: string[];
+    policeStations: string[];
+  };
   scope: string;
   timestamp: string;
 }
@@ -138,6 +178,8 @@ export const visualizationsService = {
     if (filters?.police_station && filters.police_station !== 'All Police Stations') params.append('police_station', filters.police_station);
     if (filters?.entity_type && filters.entity_type !== 'All Categories') params.append('entity_type', filters.entity_type);
     if (filters?.min_risk !== undefined && filters.min_risk > 0) params.append('min_risk', filters.min_risk.toString());
+    if (filters?.date_from) params.append('date_from', filters.date_from);
+    if (filters?.date_to) params.append('date_to', filters.date_to);
     if (filters?.focus_id) params.append('focus_id', filters.focus_id);
     if (filters?.hops) params.append('hops', filters.hops.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());

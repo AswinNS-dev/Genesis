@@ -58,12 +58,36 @@ def resolve_entities_endpoint(
 def update_entity_match_status_endpoint(
     match_id: str,
     payload: MatchStatusUpdateSchema,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
+    from backend.app.database.models import EntityMatch
+    prev_match = db.query(EntityMatch).filter(EntityMatch.id == match_id).first()
+    prev_status = prev_match.status if prev_match else "UNKNOWN"
+
     ctrl = IntelligenceController(db)
     updated = ctrl.update_match_status(match_id, payload.status)
     if not updated:
         raise HTTPException(status_code=404, detail="Entity match not found")
+
+    # Record audit trail
+    from backend.app.security.audit import log_action
+    action_type = f"ENTITY_MATCH_{payload.status.upper()}"
+    log_action(
+        db=db,
+        action=action_type,
+        detail=f"Investigator updated entity match {match_id} from {prev_status} to {payload.status.upper()}",
+        resource="EntityMatch",
+        resource_id=match_id,
+        status="SUCCESS",
+        severity="MEDIUM",
+        previous_state=prev_status,
+        new_state=payload.status.upper(),
+        user_id=user.id if user else None,
+        role=user.role if user else "INVESTIGATOR"
+    )
+    db.commit()
+
     return {"success": True, "id": updated.id, "status": updated.status}
 
 

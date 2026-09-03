@@ -22,17 +22,20 @@ export function setStoredToken(token: string | null) {
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
-  const authHeaders: Record<string, string> = {};
+  const headers: Record<string, string> = {};
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
-    authHeaders['Authorization'] = `Bearer ${token}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders,
+      ...headers,
       ...options.headers,
     },
   });
